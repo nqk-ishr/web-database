@@ -1,0 +1,13 @@
+# Khung CI. Điền bước build/test thật khi backend và frontend đã có test.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "TODO: build + test backend và frontend"

@@ -1,0 +1,28 @@
+# bí mật
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+build/
+
+# dữ liệu lớn / sao lưu (nộp script tái tạo, không nộp dump)
+*.dump
+*.backup
+*.sql.gz
+database/seed/large/
+backups/
+
+# IDE / hệ điều hành
+.vscode/
+.idea/
+.DS_Store

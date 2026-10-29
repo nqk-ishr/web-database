@@ -1,0 +1,376 @@
+// ============================================================
+// HỆ THỐNG WEB QUẢN LÝ PHƯƠNG TIỆN GIAO THÔNG - PostgreSQL
+// Đăng ký | Đăng kiểm | Niên hạn | Phạt nguội
+// Dán nguyên file này vào https://dbdiagram.io
+// ============================================================
+
+Project vehicle_management {
+  database_type: 'PostgreSQL'
+  Note: 'CSDL hệ thống quản lý phương tiện - 15 bảng, chuẩn hóa 3NF'
+}
+
+// ------------------------------------------------------------
+// ENUM (trạng thái / luồng xử lý)
+// ------------------------------------------------------------
+Enum vehicle_usage {
+  personal            // xe cá nhân
+  business            // kinh doanh vận tải
+  passenger_transport // chở người
+  cargo               // chở hàng
+}
+
+Enum registration_status {
+  active      // đăng ký hiện hành
+  closed      // đã đóng do sang tên / đổi biển
+  revoked     // thu hồi
+  cancelled   // hủy đăng ký
+}
+
+Enum user_role {
+  owner    // chủ phương tiện (phía người dùng)
+  officer  // cán bộ (phía quản lý)
+}
+
+Enum officer_type {
+  registration  // cán bộ đăng ký phương tiện
+  inspection    // cán bộ đăng kiểm
+  violation     // cán bộ xử lý vi phạm
+}
+
+Enum request_status {
+  pending        // chờ duyệt
+  approved       // đã duyệt
+  rejected       // từ chối
+}
+
+Enum slot_status {
+  open
+  closed
+}
+
+Enum appointment_status {
+  booked
+  cancelled
+  completed
+  no_show
+}
+
+Enum inspection_result {
+  passed
+  failed
+}
+
+Enum violation_status {
+  new        // mới ghi nhận
+  verified   // đã xác minh
+  notified   // đã thông báo
+  paid       // đã nộp phạt
+  appealing  // đang khiếu nại (quá hạn được tính từ due_date, không lưu)
+}
+
+Enum payment_method {
+  bank_transfer
+  card
+  e_wallet
+  cash
+}
+
+Enum payment_status {
+  success
+  failed
+}
+
+Enum appeal_status {
+  pending
+  accepted
+  rejected
+}
+
+// ============================================================
+// NHÓM 1: NGƯỜI DÙNG VÀ DANH MỤC
+// ============================================================
+
+Table users {
+  id            int [pk, increment]
+  role          user_role [not null, note: 'owner | officer']
+  officer_type  officer_type [note: 'Chỉ có giá trị khi role = officer; cán bộ bắt buộc có officer_type (CHECK ở SQL)']
+  username      varchar(50) [not null, unique]
+  password_hash varchar(255) [not null, note: 'bcrypt/argon2, không lưu mật khẩu thô']
+  full_name     varchar(150) [not null]
+  email         varchar(150) [not null, unique]
+  phone         varchar(20)
+  is_active     boolean [not null, default: true]
+  created_at    timestamp [not null, default: `now()`]
+
+  indexes {
+    role
+  }
+
+  Note: 'Tài khoản đăng nhập cho cả chủ xe và cán bộ (thay cho bảng roles)'
+}
+
+Table vehicle_types {
+  id                      int [pk, increment]
+  code                    varchar(30) [not null, unique]
+  name                    varchar(100) [not null, note: 'Ví dụ: ô tô con, xe tải, xe khách, xe máy']
+  usage                   vehicle_usage [not null, note: 'Công năng']
+  max_service_years       int [note: 'Niên hạn sử dụng tối đa (năm); NULL = không giới hạn. CHECK > 0']
+  first_inspection_months int [not null, note: 'Chu kỳ đăng kiểm lần đầu (tháng)']
+  inspection_cycle_months int [not null, note: 'Chu kỳ đăng kiểm định kỳ (tháng). CHECK > 0']
+  description             text
+
+  Note: 'Danh mục cấu hình: niên hạn, chu kỳ đăng kiểm theo loại xe và công năng'
+}
+
+Table violation_types {
+  id          int [pk, increment]
+  code        varchar(30) [not null, unique]
+  name        varchar(255) [not null]
+  min_fine    decimal(12,0) [not null, note: 'CHECK min_fine >= 0']
+  max_fine    decimal(12,0) [not null, note: 'CHECK max_fine >= min_fine']
+  points      int [not null, default: 0, note: 'Điểm vi phạm']
+  description text
+
+  Note: 'Danh mục lỗi và khung mức phạt (cấu hình được)'
+}
+
+Table cameras {
+  id            int [pk, increment]
+  code          varchar(30) [not null, unique]
+  location_name varchar(255) [not null]
+  route         varchar(150) [not null, note: 'Tuyến đường']
+  district      varchar(100) [not null, note: 'Khu vực']
+  latitude      decimal(9,6) [note: 'Hiển thị bản đồ Leaflet']
+  longitude     decimal(9,6)
+  is_active     boolean [not null, default: true]
+
+  indexes {
+    district
+  }
+
+  Note: 'Camera giám sát vi phạm'
+}
+
+Table inspection_stations {
+  id       int [pk, increment]
+  name     varchar(150) [not null, unique]
+  address  varchar(255) [not null]
+  district varchar(100) [not null]
+  phone    varchar(20)
+
+  Note: 'Trạm đăng kiểm'
+}
+
+// ============================================================
+// NHÓM 2: PHƯƠNG TIỆN VÀ CHỦ SỞ HỮU
+// ============================================================
+
+Table owners {
+  id            int [pk, increment]
+  user_id       int [unique, ref: - users.id, note: 'Liên kết tài khoản (1-1). NULL nếu chưa có tài khoản']
+  full_name     varchar(150) [not null]
+  national_id   varchar(20) [not null, unique, note: 'CCCD - cần che bớt khi hiển thị']
+  date_of_birth date
+  phone         varchar(20)
+  email         varchar(150)
+  address       varchar(255)
+  created_at    timestamp [not null, default: `now()`]
+
+  Note: 'Chủ sở hữu phương tiện (thông tin cá nhân được che bớt ở API)'
+}
+
+Table vehicles {
+  id               int [pk, increment]
+  vehicle_type_id  int [not null, ref: > vehicle_types.id]
+  chassis_no       varchar(30) [not null, unique, note: 'Số khung']
+  engine_no        varchar(30) [not null, unique, note: 'Số máy']
+  brand            varchar(60) [not null]
+  model            varchar(60) [not null]
+  color            varchar(30)
+  manufacture_year int [not null, note: 'CHECK năm sản xuất trong khoảng hợp lệ (1990..năm hiện tại)']
+  created_at       timestamp [not null, default: `now()`]
+
+  indexes {
+    vehicle_type_id
+    manufacture_year
+  }
+
+  Note: 'Thông tin kỹ thuật của xe. Niên hạn = manufacture_year + vehicle_types.max_service_years'
+}
+
+Table registration_requests {
+  id               int [pk, increment]
+  vehicle_id       int [not null, ref: > vehicles.id]
+  requester_id     int [not null, ref: > owners.id, note: 'Chủ xe gửi hồ sơ']
+  new_owner_id     int [not null, ref: > owners.id, note: 'Chủ mới nhận xe (sang tên)']
+  content          text [note: 'Lý do / ghi chú của chủ xe']
+  status           request_status [not null, default: 'pending']
+  review_note      text [note: 'Lý do từ chối / yêu cầu bổ sung']
+  reviewed_by      int [ref: > users.id, note: 'Cán bộ đăng ký phương tiện']
+  submitted_at     timestamp [not null, default: `now()`]
+  reviewed_at      timestamp [note: 'CHECK reviewed_at >= submitted_at']
+
+  indexes {
+    (status, submitted_at) [name: 'idx_reg_req_status_submitted']
+    vehicle_id
+  }
+
+  Note: 'Hồ sơ sang tên chủ xe gửi (Chờ duyệt -> Đã duyệt / Từ chối). Kiểm soát luồng ở backend và CHECK'
+}
+
+Table registrations {
+  id           int [pk, increment]
+  vehicle_id   int [not null, ref: > vehicles.id]
+  owner_id     int [not null, ref: > owners.id]
+  request_id   int [ref: > registration_requests.id, note: 'Hồ sơ phát sinh đăng ký này (nếu có)']
+  plate_number varchar(15) [not null, note: 'Biển số']
+  valid_from   date [not null]
+  valid_to     date [note: 'NULL = đang hiện hành. CHECK valid_to > valid_from']
+  status       registration_status [not null, default: 'active']
+  created_at   timestamp [not null, default: `now()`]
+
+  indexes {
+    (vehicle_id, valid_from) [name: 'idx_reg_vehicle_from']
+    owner_id
+    plate_number
+  }
+
+  Note: '''
+  Lịch sử đăng ký / sang tên.
+  - UNIQUE partial: (vehicle_id) WHERE status = 'active'  -> một xe chỉ có một đăng ký hiện hành
+  - UNIQUE partial: (plate_number) WHERE status = 'active' -> biển số duy nhất khi hiện hành
+  - EXCLUDE USING gist (vehicle_id WITH =, daterange(valid_from, valid_to) WITH &&) -> không chồng lấn thời gian sở hữu
+  '''
+}
+
+// ============================================================
+// NHÓM 3: ĐĂNG KIỂM
+// ============================================================
+
+Table inspection_slots {
+  id           int [pk, increment]
+  station_id   int [not null, ref: > inspection_stations.id]
+  opened_by    int [ref: > users.id, note: 'Cán bộ đăng kiểm mở khung giờ']
+  slot_start   timestamp [not null]
+  slot_end     timestamp [not null, note: 'CHECK slot_end > slot_start']
+  capacity     int [not null, note: 'Sức chứa. CHECK capacity > 0']
+  booked_count int [not null, default: 0, note: 'CHECK booked_count BETWEEN 0 AND capacity']
+  status       slot_status [not null, default: 'open']
+
+  indexes {
+    (station_id, slot_start) [unique, name: 'uq_slot_station_start']
+    (status, slot_start)
+  }
+
+  Note: 'Khung giờ đăng kiểm theo sức chứa của trạm'
+}
+
+Table inspection_appointments {
+  id           int [pk, increment]
+  vehicle_id   int [not null, ref: > vehicles.id]
+  slot_id      int [not null, ref: > inspection_slots.id]
+  booked_by    int [not null, ref: > owners.id]
+  status       appointment_status [not null, default: 'booked']
+  created_at   timestamp [not null, default: `now()`]
+  cancelled_at timestamp
+
+  indexes {
+    slot_id
+    (vehicle_id, status)
+  }
+
+  Note: '''
+  Lịch hẹn của chủ xe.
+  - UNIQUE partial: (vehicle_id) WHERE status = 'booked' -> một xe không có hai lịch còn hiệu lực
+  - Khóa hàng (SELECT ... FOR UPDATE) trên inspection_slots khi đặt để tránh vượt sức chứa
+  '''
+}
+
+Table inspections {
+  id             int [pk, increment]
+  appointment_id int [unique, ref: - inspection_appointments.id, note: 'Có thể NULL nếu kiểm định không qua đặt lịch']
+  vehicle_id     int [not null, ref: > vehicles.id]
+  station_id     int [not null, ref: > inspection_stations.id]
+  inspector_id   int [not null, ref: > users.id, note: 'Cán bộ đăng kiểm']
+  result         inspection_result [not null]
+  certificate_no varchar(30) [unique, note: 'Số giấy chứng nhận (khi đạt)']
+  inspected_at   date [not null]
+  expires_at     date [note: 'Hạn kiểm định kế tiếp (khi đạt). CHECK expires_at > inspected_at']
+  notes          text
+
+  indexes {
+    expires_at [name: 'idx_inspections_expires_at']
+    (vehicle_id, inspected_at)
+  }
+
+  Note: 'Kết quả kiểm định. Hạn tiếp theo tự tính theo loại xe và tuổi xe; xe quá niên hạn không được cấp hạn mới'
+}
+
+// ============================================================
+// NHÓM 4: VI PHẠM VÀ XỬ LÝ
+// ============================================================
+
+Table violations {
+  id                int [pk, increment]
+  camera_id         int [not null, ref: > cameras.id]
+  violation_type_id int [not null, ref: > violation_types.id]
+  vehicle_id        int [ref: > vehicles.id, note: 'NULL nếu chưa đối chiếu được xe']
+  registration_id   int [ref: > registrations.id, note: 'Đăng ký/chủ xe hiện hành tại thời điểm vi phạm']
+  plate_detected    varchar(15) [not null, note: 'Biển số camera nhận diện']
+  occurred_at       timestamp [not null]
+  fine_amount       decimal(12,0) [not null, note: 'CHECK nằm trong [min_fine, max_fine] của loại lỗi (trigger)']
+  status            violation_status [not null, default: 'new']
+  evidence_url      varchar(500) [note: 'Đường dẫn ảnh minh chứng']
+  verified_by       int [ref: > users.id, note: 'Cán bộ xử lý vi phạm']
+  verified_at       timestamp
+  notified_at       timestamp
+  due_date          date [note: 'Hạn nộp phạt']
+  created_at        timestamp [not null, default: `now()`]
+
+  indexes {
+    (vehicle_id, occurred_at) [name: 'idx_violations_vehicle_time']
+    (camera_id, occurred_at)
+    (status, due_date) [name: 'idx_violations_status_due']
+    violation_type_id
+  }
+
+  Note: 'Bảng đo hiệu năng (khoảng 120.000 dòng). Luồng: new -> verified -> notified -> paid / appealing (trigger). Quá hạn tính từ due_date'
+}
+
+Table payments {
+  id             int [pk, increment]
+  violation_id   int [not null, ref: > violations.id]
+  paid_by        int [ref: > owners.id, note: 'Chủ xe nộp (NULL nếu cán bộ ghi nhận tại quầy)']
+  recorded_by    int [ref: > users.id, note: 'Cán bộ ghi nhận (nếu nộp tại quầy)']
+  amount         decimal(12,0) [not null, note: 'CHECK amount > 0; tổng đã nộp không vượt fine_amount (trigger)']
+  method         payment_method [not null]
+  status         payment_status [not null, default: 'success']
+  transaction_ref varchar(60) [unique, note: 'Mã giao dịch - chống nộp trùng']
+  paid_at        timestamp [not null, default: `now()`]
+
+  indexes {
+    violation_id
+    paid_at
+  }
+
+  Note: 'Ghi nhận nộp phạt - cập nhật cùng lúc violations.status trong một transaction'
+}
+
+Table appeals {
+  id              int [pk, increment]
+  violation_id    int [not null, ref: > violations.id]
+  owner_id        int [not null, ref: > owners.id]
+  reason          text [not null]
+  status          appeal_status [not null, default: 'pending']
+  resolved_by     int [ref: > users.id, note: 'Cán bộ xử lý vi phạm']
+  resolution_note text
+  created_at      timestamp [not null, default: `now()`]
+  resolved_at     timestamp [note: 'CHECK resolved_at >= created_at']
+
+  indexes {
+    violation_id
+    (status, created_at)
+  }
+
+  Note: 'Khiếu nại của chủ xe. Khi gửi: violations.status = appealing'
+}
