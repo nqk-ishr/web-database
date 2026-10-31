@@ -65,7 +65,7 @@ CREATE TABLE vehicle_models (
     brand VARCHAR(60) NOT NULL,
     name  VARCHAR(60) NOT NULL,
     CONSTRAINT uq_vehicle_models_brand_name 
-        UNIQUE (brand, name) # 2 dòng khác nhau brand hoặc name hoặc cả 2
+        UNIQUE (brand, name)
 );
 
 CREATE TABLE violation_types (
