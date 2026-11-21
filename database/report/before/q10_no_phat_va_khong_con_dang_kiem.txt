@@ -1,0 +1,50 @@
+                                                                         QUERY PLAN                                                                          
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=34953.76..34953.88 rows=50 width=63) (actual time=238.552..238.566 rows=50 loops=1)
+   Buffers: shared hit=9716 read=2487, temp read=322 written=675
+   ->  Sort  (cost=34953.76..35008.42 rows=21865 width=63) (actual time=238.550..238.559 rows=50 loops=1)
+         Sort Key: (sum(violations.fine_amount)) DESC
+         Sort Method: top-N heapsort  Memory: 30kB
+         Buffers: shared hit=9716 read=2487, temp read=322 written=675
+         ->  Hash Join  (cost=31466.37..34227.42 rows=21865 width=63) (actual time=191.488..235.663 rows=11356 loops=1)
+               Hash Cond: (r.owner_id = o.id)
+               Buffers: shared hit=9713 read=2487, temp read=322 written=675
+               ->  Hash Anti Join  (cost=28909.37..31613.02 rows=21865 width=50) (actual time=171.398..210.415 rows=11356 loops=1)
+                     Hash Cond: (violations.vehicle_id = i.vehicle_id)
+                     Buffers: shared hit=8506 read=2487, temp read=322 written=675
+                     ->  Hash Join  (cost=24352.17..26670.45 rows=43730 width=50) (actual time=149.743..177.783 rows=59055 loops=1)
+                           Hash Cond: (r.vehicle_id = violations.vehicle_id)
+                           Buffers: shared hit=7276 read=2487, temp read=322 written=675
+                           ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=18) (actual time=1.256..10.235 rows=75000 loops=1)
+                                 Filter: (status = 'active'::registration_status)
+                                 Rows Removed by Filter: 18750
+                                 Buffers: shared hit=949
+                           ->  Hash  (cost=23670.70..23670.70 rows=54517 width=36) (actual time=148.230..148.232 rows=59055 loops=1)
+                                 Buckets: 65536  Batches: 1  Memory Usage: 2877kB
+                                 Buffers: shared hit=6327 read=2487, temp read=322 written=675
+                                 ->  HashAggregate  (cost=21796.25..23670.70 rows=54517 width=36) (actual time=104.945..139.281 rows=59055 loops=1)
+                                       Group Key: violations.vehicle_id
+                                       Planned Partitions: 4  Batches: 5  Memory Usage: 8241kB  Disk Usage: 3520kB
+                                       Buffers: shared hit=6327 read=2487, temp read=322 written=675
+                                       ->  Seq Scan on violations  (cost=0.00..13970.25 rows=122162 width=9) (actual time=0.023..56.579 rows=125517 loops=1)
+                                             Filter: ((vehicle_id IS NOT NULL) AND (status = ANY ('{verified,notified,appealing}'::violation_status[])))
+                                             Rows Removed by Filter: 249483
+                                             Buffers: shared hit=6327 read=2487
+                     ->  Hash  (cost=3855.00..3855.00 rows=56176 width=4) (actual time=21.626..21.627 rows=61118 loops=1)
+                           Buckets: 65536  Batches: 1  Memory Usage: 2661kB
+                           Buffers: shared hit=1230
+                           ->  Seq Scan on inspections i  (cost=0.00..3855.00 rows=56176 width=4) (actual time=0.019..14.724 rows=61118 loops=1)
+                                 Filter: ((result = 'passed'::inspection_result) AND (expires_at >= CURRENT_DATE))
+                                 Rows Removed by Filter: 88882
+                                 Buffers: shared hit=1230
+               ->  Hash  (cost=1807.00..1807.00 rows=60000 width=21) (actual time=19.820..19.821 rows=60000 loops=1)
+                     Buckets: 65536  Batches: 1  Memory Usage: 3742kB
+                     Buffers: shared hit=1207
+                     ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.005..7.469 rows=60000 loops=1)
+                           Buffers: shared hit=1207
+ Planning:
+   Buffers: shared hit=360
+ Planning Time: 1.085 ms
+ Execution Time: 239.378 ms
+(46 rows)
+

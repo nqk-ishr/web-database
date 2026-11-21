@@ -1,0 +1,34 @@
+                                                                       QUERY PLAN                                                                        
+---------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=15315.80..15322.87 rows=100 width=59) (actual time=90.527..90.719 rows=100 loops=1)
+   Buffers: shared hit=2165, temp read=358 written=600
+   ->  Incremental Sort  (cost=15315.80..21946.16 rows=93750 width=59) (actual time=90.525..90.709 rows=100 loops=1)
+         Sort Key: r.vehicle_id, (row_number() OVER (?))
+         Presorted Key: r.vehicle_id
+         Full-sort Groups: 4  Sort Method: quicksort  Average Memory: 29kB  Peak Memory: 29kB
+         Buffers: shared hit=2165, temp read=358 written=600
+         ->  WindowAgg  (cost=15315.74..18596.99 rows=93750 width=59) (actual time=90.414..90.646 rows=101 loops=1)
+               Run Condition: (count(*) OVER (?) >= 2)
+               Buffers: shared hit=2159, temp read=358 written=600
+               ->  WindowAgg  (cost=15315.74..17190.74 rows=93750 width=51) (actual time=90.397..90.513 rows=256 loops=1)
+                     Buffers: shared hit=2159, temp read=358 written=600
+                     ->  Sort  (cost=15315.74..15550.11 rows=93750 width=43) (actual time=90.389..90.416 rows=256 loops=1)
+                           Sort Key: r.vehicle_id, r.valid_from
+                           Sort Method: external merge  Disk: 4784kB
+                           Buffers: shared hit=2159, temp read=358 written=600
+                           ->  Hash Join  (cost=2557.00..4689.62 rows=93750 width=43) (actual time=19.325..60.158 rows=93750 loops=1)
+                                 Hash Cond: (r.owner_id = o.id)
+                                 Buffers: shared hit=2156
+                                 ->  Seq Scan on registrations r  (cost=0.00..1886.50 rows=93750 width=30) (actual time=0.005..7.932 rows=93750 loops=1)
+                                       Buffers: shared hit=949
+                                 ->  Hash  (cost=1807.00..1807.00 rows=60000 width=21) (actual time=19.061..19.062 rows=60000 loops=1)
+                                       Buckets: 65536  Batches: 1  Memory Usage: 3742kB
+                                       Buffers: shared hit=1207
+                                       ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.003..7.333 rows=60000 loops=1)
+                                             Buffers: shared hit=1207
+ Planning:
+   Buffers: shared hit=268
+ Planning Time: 0.804 ms
+ Execution Time: 91.315 ms
+(30 rows)
+

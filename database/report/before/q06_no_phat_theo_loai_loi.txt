@@ -1,0 +1,30 @@
+                                                                 QUERY PLAN                                                                  
+---------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=15266.90..15267.03 rows=50 width=111) (actual time=107.109..107.115 rows=50 loops=1)
+   Sort Key: (sum(x.fine_amount)) DESC
+   Sort Method: quicksort  Memory: 29kB
+   Buffers: shared hit=6139 read=2679
+   ->  WindowAgg  (cost=15263.86..15265.49 rows=50 width=111) (actual time=107.035..107.063 rows=50 loops=1)
+         Buffers: shared hit=6136 read=2679
+         ->  HashAggregate  (cost=15263.86..15264.49 rows=50 width=79) (actual time=106.982..106.998 rows=50 loops=1)
+               Group Key: t.id
+               Batches: 1  Memory Usage: 48kB
+               Buffers: shared hit=6136 read=2679
+               ->  Hash Join  (cost=2.12..14327.77 rows=124812 width=44) (actual time=0.060..81.677 rows=125517 loops=1)
+                     Hash Cond: (x.violation_type_id = t.id)
+                     Buffers: shared hit=6136 read=2679
+                     ->  Seq Scan on violations x  (cost=0.00..13970.25 rows=124812 width=9) (actual time=0.021..59.954 rows=125517 loops=1)
+                           Filter: (status = ANY ('{verified,notified,appealing}'::violation_status[]))
+                           Rows Removed by Filter: 249483
+                           Buffers: shared hit=6135 read=2679
+                     ->  Hash  (cost=1.50..1.50 rows=50 width=39) (actual time=0.025..0.026 rows=50 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 12kB
+                           Buffers: shared hit=1
+                           ->  Seq Scan on violation_types t  (cost=0.00..1.50 rows=50 width=39) (actual time=0.002..0.008 rows=50 loops=1)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=207
+ Planning Time: 0.663 ms
+ Execution Time: 107.222 ms
+(26 rows)
+

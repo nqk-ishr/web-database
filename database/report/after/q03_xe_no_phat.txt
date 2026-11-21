@@ -1,0 +1,41 @@
+                                                                                      QUERY PLAN                                                                                      
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=24773.87..24773.99 rows=50 width=75) (actual time=247.077..247.092 rows=50 loops=1)
+   Buffers: shared hit=2655, temp read=600 written=1423
+   ->  Sort  (cost=24773.87..24855.29 rows=32568 width=75) (actual time=247.075..247.085 rows=50 loops=1)
+         Sort Key: (sum(x.fine_amount)) DESC
+         Sort Method: top-N heapsort  Memory: 36kB
+         Buffers: shared hit=2655, temp read=600 written=1423
+         ->  HashAggregate  (cost=20699.77..23691.98 rows=32568 width=75) (actual time=195.872..243.410 rows=12922 loops=1)
+               Group Key: x.vehicle_id, r.plate_number, o.full_name
+               Filter: (sum(x.fine_amount) >= '5000000'::numeric)
+               Planned Partitions: 8  Batches: 9  Memory Usage: 8273kB  Disk Usage: 7312kB
+               Rows Removed by Filter: 46133
+               Buffers: shared hit=2652, temp read=600 written=1423
+               ->  Hash Join  (cost=5618.29..11173.53 rows=97705 width=40) (actual time=47.523..136.788 rows=125517 loops=1)
+                     Hash Cond: (r.owner_id = o.id)
+                     Buffers: shared hit=2652
+                     ->  Hash Join  (cost=3061.29..8360.03 rows=97705 width=27) (actual time=27.710..79.231 rows=125517 loops=1)
+                           Hash Cond: (x.vehicle_id = r.vehicle_id)
+                           Buffers: shared hit=1445
+                           ->  Index Only Scan using idx_violations_unpaid on violations x  (cost=0.42..3856.17 rows=124250 width=13) (actual time=0.031..15.266 rows=125517 loops=1)
+                                 Heap Fetches: 0
+                                 Buffers: shared hit=496
+                           ->  Hash  (cost=2120.88..2120.88 rows=75200 width=18) (actual time=27.088..27.089 rows=75000 loops=1)
+                                 Buckets: 131072  Batches: 1  Memory Usage: 4833kB
+                                 Buffers: shared hit=949
+                                 ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=18) (actual time=1.354..10.897 rows=75000 loops=1)
+                                       Filter: (status = 'active'::registration_status)
+                                       Rows Removed by Filter: 18750
+                                       Buffers: shared hit=949
+                     ->  Hash  (cost=1807.00..1807.00 rows=60000 width=21) (actual time=19.581..19.582 rows=60000 loops=1)
+                           Buckets: 65536  Batches: 1  Memory Usage: 3742kB
+                           Buffers: shared hit=1207
+                           ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.005..7.165 rows=60000 loops=1)
+                                 Buffers: shared hit=1207
+ Planning:
+   Buffers: shared hit=385
+ Planning Time: 1.264 ms
+ Execution Time: 248.291 ms
+(37 rows)
+

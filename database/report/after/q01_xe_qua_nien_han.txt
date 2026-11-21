@@ -1,0 +1,46 @@
+                                                                        QUERY PLAN                                                                         
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=8650.16..8650.29 rows=50 width=63) (actual time=77.836..77.855 rows=50 loops=1)
+   Buffers: shared hit=3812
+   ->  Sort  (cost=8650.16..8694.03 rows=17547 width=63) (actual time=77.834..77.846 rows=50 loops=1)
+         Sort Key: ((((EXTRACT(year FROM CURRENT_DATE))::integer - v.manufacture_year) - vt.max_service_years)) DESC, v.id
+         Sort Method: top-N heapsort  Memory: 35kB
+         Buffers: shared hit=3812
+         ->  Hash Join  (cost=5640.46..8067.26 rows=17547 width=63) (actual time=56.776..76.167 rows=3468 loops=1)
+               Hash Cond: (o.id = r.owner_id)
+               Buffers: shared hit=3809
+               ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.003..7.216 rows=60000 loops=1)
+                     Buffers: shared hit=1207
+               ->  Hash  (cost=5421.12..5421.12 rows=17547 width=46) (actual time=56.558..56.564 rows=3468 loops=1)
+                     Buckets: 32768  Batches: 1  Memory Usage: 532kB
+                     Buffers: shared hit=2602
+                     ->  Hash Join  (cost=2877.88..5421.12 rows=17547 width=46) (actual time=31.217..54.900 rows=3468 loops=1)
+                           Hash Cond: (r.vehicle_id = v.id)
+                           Buffers: shared hit=2602
+                           ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=18) (actual time=2.129..15.730 rows=75000 loops=1)
+                                 Filter: (status = 'active'::registration_status)
+                                 Rows Removed by Filter: 18750
+                                 Buffers: shared hit=949
+                           ->  Hash  (cost=2659.12..2659.12 rows=17500 width=32) (actual time=28.912..28.916 rows=3468 loops=1)
+                                 Buckets: 32768  Batches: 1  Memory Usage: 478kB
+                                 Buffers: shared hit=1653
+                                 ->  Hash Join  (cost=1.19..2659.12 rows=17500 width=32) (actual time=2.715..27.570 rows=3468 loops=1)
+                                       Hash Cond: (v.vehicle_type_id = vt.id)
+                                       Join Filter: (((v.manufacture_year + vt.max_service_years))::numeric < EXTRACT(year FROM CURRENT_DATE))
+                                       Rows Removed by Join Filter: 9813
+                                       Buffers: shared hit=1653
+                                       ->  Seq Scan on vehicles v  (cost=0.00..2402.00 rows=75000 width=12) (actual time=2.656..11.238 rows=75000 loops=1)
+                                             Buffers: shared hit=1652
+                                       ->  Hash  (cost=1.10..1.10 rows=7 width=28) (actual time=0.017..0.019 rows=7 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                             Buffers: shared hit=1
+                                             ->  Seq Scan on vehicle_types vt  (cost=0.00..1.10 rows=7 width=28) (actual time=0.007..0.009 rows=7 loops=1)
+                                                   Filter: (max_service_years IS NOT NULL)
+                                                   Rows Removed by Filter: 3
+                                                   Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=438
+ Planning Time: 1.688 ms
+ Execution Time: 77.968 ms
+(42 rows)
+

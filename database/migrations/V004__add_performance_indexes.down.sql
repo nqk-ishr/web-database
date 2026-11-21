@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_inspections_vehicle_passed, idx_violations_unpaid, idx_violations_vehicle_time;

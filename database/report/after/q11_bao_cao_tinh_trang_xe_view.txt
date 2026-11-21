@@ -1,0 +1,55 @@
+                                                                                                                                                                                                                                                                   QUERY PLAN                                                                                                                                                                                                                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=532349.76..532350.04 rows=112 width=104) (actual time=412.117..412.125 rows=16 loops=1)
+   Sort Key: (CASE WHEN (vt.max_service_years IS NULL) THEN 'unlimited'::text WHEN (EXTRACT(year FROM CURRENT_DATE) > ((v.manufacture_year + vt.max_service_years))::numeric) THEN 'expired'::text WHEN (EXTRACT(year FROM CURRENT_DATE) >= (((v.manufacture_year + vt.max_service_years) - 1))::numeric) THEN 'near_expiry'::text ELSE 'valid'::text END), (CASE WHEN (($1) IS NULL) THEN 'none'::text WHEN (($1) < CURRENT_DATE) THEN 'expired'::text WHEN (($1) <= (CURRENT_DATE + 30)) THEN 'expiring_30d'::text ELSE 'valid'::text END)
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=452859
+   ->  HashAggregate  (cost=532340.07..532345.95 rows=112 width=104) (actual time=412.073..412.085 rows=16 loops=1)
+         Group Key: CASE WHEN (vt.max_service_years IS NULL) THEN 'unlimited'::text WHEN (EXTRACT(year FROM CURRENT_DATE) > ((v.manufacture_year + vt.max_service_years))::numeric) THEN 'expired'::text WHEN (EXTRACT(year FROM CURRENT_DATE) >= (((v.manufacture_year + vt.max_service_years) - 1))::numeric) THEN 'near_expiry'::text ELSE 'valid'::text END, CASE WHEN (($1) IS NULL) THEN 'none'::text WHEN (($1) < CURRENT_DATE) THEN 'expired'::text WHEN (($1) <= (CURRENT_DATE + 30)) THEN 'expiring_30d'::text ELSE 'valid'::text END
+         Batches: 1  Memory Usage: 24kB
+         Buffers: shared hit=452856
+         ->  Nested Loop Left Join  (cost=3347.62..531588.07 rows=75200 width=96) (actual time=24.813..389.731 rows=75000 loops=1)
+               Buffers: shared hit=452856
+               ->  Nested Loop Left Join  (cost=3343.16..190932.07 rows=75200 width=16) (actual time=24.752..217.781 rows=75000 loops=1)
+                     Buffers: shared hit=227603
+                     ->  Hash Join  (cost=3340.72..5940.07 rows=75200 width=12) (actual time=24.679..76.388 rows=75000 loops=1)
+                           Hash Cond: (v.vehicle_type_id = vt.id)
+                           Buffers: shared hit=2602
+                           ->  Hash Right Join  (cost=3339.50..5657.79 rows=75200 width=12) (actual time=24.649..62.669 rows=75000 loops=1)
+                                 Hash Cond: (r.vehicle_id = v.id)
+                                 Buffers: shared hit=2601
+                                 ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=8) (actual time=1.378..12.828 rows=75000 loops=1)
+                                       Filter: (status = 'active'::registration_status)
+                                       Rows Removed by Filter: 18750
+                                       Buffers: shared hit=949
+                                 ->  Hash  (cost=2402.00..2402.00 rows=75000 width=12) (actual time=22.730..22.731 rows=75000 loops=1)
+                                       Buckets: 131072  Batches: 1  Memory Usage: 4247kB
+                                       Buffers: shared hit=1652
+                                       ->  Seq Scan on vehicles v  (cost=0.00..2402.00 rows=75000 width=12) (actual time=1.862..10.950 rows=75000 loops=1)
+                                             Buffers: shared hit=1652
+                           ->  Hash  (cost=1.10..1.10 rows=10 width=8) (actual time=0.015..0.016 rows=10 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on vehicle_types vt  (cost=0.00..1.10 rows=10 width=8) (actual time=0.006..0.008 rows=10 loops=1)
+                                       Buffers: shared hit=1
+                     ->  Result  (cost=2.44..2.45 rows=1 width=4) (actual time=0.001..0.002 rows=1 loops=75000)
+                           Buffers: shared hit=225001
+                           InitPlan 1 (returns $1)
+                             ->  Limit  (cost=0.42..2.44 rows=1 width=4) (actual time=0.001..0.001 rows=1 loops=75000)
+                                   Buffers: shared hit=225001
+                                   ->  Index Only Scan using idx_inspections_vehicle_passed on inspections i  (cost=0.42..4.46 rows=2 width=4) (actual time=0.001..0.001 rows=1 loops=75000)
+                                         Index Cond: ((vehicle_id = v.id) AND (expires_at IS NOT NULL))
+                                         Heap Fetches: 0
+                                         Buffers: shared hit=225001
+               ->  Aggregate  (cost=4.46..4.47 rows=1 width=40) (actual time=0.002..0.002 rows=1 loops=75000)
+                     Buffers: shared hit=225253
+                     ->  Index Only Scan using idx_violations_unpaid on violations x  (cost=0.42..4.45 rows=2 width=5) (actual time=0.001..0.001 rows=2 loops=75000)
+                           Index Cond: (vehicle_id = v.id)
+                           Heap Fetches: 0
+                           Buffers: shared hit=225253
+ Planning:
+   Buffers: shared hit=683
+ Planning Time: 1.707 ms
+ Execution Time: 412.303 ms
+(51 rows)
+

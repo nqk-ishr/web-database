@@ -1,0 +1,43 @@
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=72570.03..72720.03 rows=60000 width=69) (actual time=559.375..559.382 rows=10 loops=1)
+   Sort Key: (rank() OVER (?)), o.id
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=8169 read=2807, temp read=1432 written=2580
+   ->  WindowAgg  (cost=64294.23..65344.23 rows=60000 width=69) (actual time=559.346..559.358 rows=10 loops=1)
+         Run Condition: (rank() OVER (?) <= 10)
+         Buffers: shared hit=8163 read=2807, temp read=1432 written=2580
+         ->  Sort  (cost=64294.23..64444.23 rows=60000 width=61) (actual time=559.336..559.342 rows=11 loops=1)
+               Sort Key: (count(*)) DESC
+               Sort Method: external merge  Disk: 2720kB
+               Buffers: shared hit=8163 read=2807, temp read=1432 written=2580
+               ->  HashAggregate  (cost=51466.68..57274.93 rows=60000 width=61) (actual time=480.249..543.736 rows=56913 loops=1)
+                     Group Key: o.id
+                     Planned Partitions: 4  Batches: 5  Memory Usage: 8241kB  Disk Usage: 11256kB
+                     Buffers: shared hit=8163 read=2807, temp read=1124 written=2239
+                     ->  Hash Join  (cost=5615.38..21059.35 rows=369975 width=26) (actual time=42.031..328.636 rows=362167 loops=1)
+                           Hash Cond: (r.owner_id = o.id)
+                           Buffers: shared hit=8163 read=2807
+                           ->  Hash Join  (cost=3058.38..17531.10 rows=369975 width=9) (actual time=23.369..210.444 rows=362167 loops=1)
+                                 Hash Cond: (x.registration_id = r.id)
+                                 Buffers: shared hit=6956 read=2807
+                                 ->  Seq Scan on violations x  (cost=0.00..13501.50 rows=369975 width=9) (actual time=0.025..69.547 rows=369667 loops=1)
+                                       Filter: (status <> 'cancelled'::violation_status)
+                                       Rows Removed by Filter: 5333
+                                       Buffers: shared hit=6007 read=2807
+                                 ->  Hash  (cost=1886.50..1886.50 rows=93750 width=8) (actual time=22.801..22.803 rows=93750 loops=1)
+                                       Buckets: 131072  Batches: 1  Memory Usage: 4687kB
+                                       Buffers: shared hit=949
+                                       ->  Seq Scan on registrations r  (cost=0.00..1886.50 rows=93750 width=8) (actual time=0.007..9.204 rows=93750 loops=1)
+                                             Buffers: shared hit=949
+                           ->  Hash  (cost=1807.00..1807.00 rows=60000 width=21) (actual time=18.373..18.374 rows=60000 loops=1)
+                                 Buckets: 65536  Batches: 1  Memory Usage: 3656kB
+                                 Buffers: shared hit=1207
+                                 ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.005..7.650 rows=60000 loops=1)
+                                       Buffers: shared hit=1207
+ Planning:
+   Buffers: shared hit=300
+ Planning Time: 0.895 ms
+ Execution Time: 560.928 ms
+(39 rows)
+

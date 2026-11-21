@@ -1,0 +1,26 @@
+                                                             QUERY PLAN                                                              
+-------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=13507.59..13507.61 rows=6 width=54) (actual time=33.416..33.421 rows=20 loops=1)
+   Buffers: shared hit=6203 read=2615
+   ->  Sort  (cost=13507.59..13507.61 rows=6 width=54) (actual time=33.414..33.417 rows=20 loops=1)
+         Sort Key: x.occurred_at DESC
+         Sort Method: quicksort  Memory: 28kB
+         Buffers: shared hit=6203 read=2615
+         ->  Nested Loop  (cost=0.00..13507.52 rows=6 width=54) (actual time=24.673..33.385 rows=23 loops=1)
+               Join Filter: (t.id = x.violation_type_id)
+               Rows Removed by Join Filter: 1127
+               Buffers: shared hit=6200 read=2615
+               ->  Seq Scan on violation_types t  (cost=0.00..1.50 rows=50 width=33) (actual time=0.002..0.007 rows=50 loops=1)
+                     Buffers: shared hit=1
+               ->  Materialize  (cost=0.00..13501.53 rows=6 width=29) (actual time=0.011..0.665 rows=23 loops=50)
+                     Buffers: shared hit=6199 read=2615
+                     ->  Seq Scan on violations x  (cost=0.00..13501.50 rows=6 width=29) (actual time=0.525..33.178 rows=23 loops=1)
+                           Filter: (vehicle_id = 100)
+                           Rows Removed by Filter: 374977
+                           Buffers: shared hit=6199 read=2615
+ Planning:
+   Buffers: shared hit=242
+ Planning Time: 0.583 ms
+ Execution Time: 33.481 ms
+(22 rows)
+

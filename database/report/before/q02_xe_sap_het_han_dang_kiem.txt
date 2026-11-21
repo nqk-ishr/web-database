@@ -1,0 +1,45 @@
+                                                                              QUERY PLAN                                                                               
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=12599.14..12599.39 rows=100 width=50) (actual time=67.331..67.349 rows=100 loops=1)
+   Buffers: shared hit=16369
+   ->  Sort  (cost=12599.14..12605.46 rows=2528 width=50) (actual time=67.330..67.339 rows=100 loops=1)
+         Sort Key: i.expires_at
+         Sort Method: top-N heapsort  Memory: 44kB
+         Buffers: shared hit=16369
+         ->  Nested Loop  (cost=7621.59..12502.52 rows=2528 width=50) (actual time=57.660..66.038 rows=4319 loops=1)
+               Buffers: shared hit=16366
+               ->  Hash Right Anti Join  (cost=7621.30..11527.90 rows=2528 width=22) (actual time=57.607..58.159 rows=4319 loops=1)
+                     Hash Cond: (j.vehicle_id = i.vehicle_id)
+                     Join Filter: (j.expires_at > i.expires_at)
+                     Rows Removed by Join Filter: 9308
+                     Buffers: shared hit=3409
+                     ->  Seq Scan on inspections j  (cost=0.00..3105.00 rows=140230 width=8) (actual time=0.007..12.760 rows=140000 loops=1)
+                           Filter: (result = 'passed'::inspection_result)
+                           Rows Removed by Filter: 10000
+                           Buffers: shared hit=1230
+                     ->  Hash  (cost=7573.90..7573.90 rows=3792 width=22) (actual time=33.306..33.308 rows=4957 loops=1)
+                           Buckets: 8192 (originally 4096)  Batches: 1 (originally 1)  Memory Usage: 336kB
+                           Buffers: shared hit=2179
+                           ->  Hash Join  (cost=5039.10..7573.90 rows=3792 width=22) (actual time=17.447..32.210 rows=4957 loops=1)
+                                 Hash Cond: (r.vehicle_id = i.vehicle_id)
+                                 Buffers: shared hit=2179
+                                 ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=18) (actual time=1.517..8.954 rows=75000 loops=1)
+                                       Filter: (status = 'active'::registration_status)
+                                       Rows Removed by Filter: 18750
+                                       Buffers: shared hit=949
+                                 ->  Hash  (cost=4980.00..4980.00 rows=4728 width=8) (actual time=15.871..15.872 rows=4957 loops=1)
+                                       Buckets: 8192  Batches: 1  Memory Usage: 258kB
+                                       Buffers: shared hit=1230
+                                       ->  Seq Scan on inspections i  (cost=0.00..4980.00 rows=4728 width=8) (actual time=0.012..15.047 rows=4957 loops=1)
+                                             Filter: ((result = 'passed'::inspection_result) AND (expires_at >= CURRENT_DATE) AND (expires_at <= (CURRENT_DATE + 30)))
+                                             Rows Removed by Filter: 145043
+                                             Buffers: shared hit=1230
+               ->  Index Scan using owners_pkey on owners o  (cost=0.29..0.38 rows=1 width=32) (actual time=0.001..0.001 rows=1 loops=4319)
+                     Index Cond: (id = r.owner_id)
+                     Buffers: shared hit=12957
+ Planning:
+   Buffers: shared hit=370
+ Planning Time: 1.043 ms
+ Execution Time: 67.452 ms
+(41 rows)
+

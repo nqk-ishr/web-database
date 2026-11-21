@@ -1,0 +1,42 @@
+                                                                                            QUERY PLAN                                                                                             
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=17124.36..17124.41 rows=20 width=98) (actual time=100.708..100.719 rows=20 loops=1)
+   Buffers: shared hit=9853 read=471
+   ->  Sort  (cost=17124.36..17138.00 rows=5455 width=98) (actual time=100.707..100.715 rows=20 loops=1)
+         Sort Key: a.created_at
+         Sort Method: top-N heapsort  Memory: 28kB
+         Buffers: shared hit=9853 read=471
+         ->  Nested Loop  (cost=2757.19..16979.21 rows=5455 width=98) (actual time=17.119..99.033 rows=5455 loops=1)
+               Buffers: shared hit=9850 read=471
+               ->  Hash Join  (cost=2757.04..16781.84 rows=5455 width=69) (actual time=17.093..95.875 rows=5455 loops=1)
+                     Hash Cond: (x.id = a.violation_id)
+                     Buffers: shared hit=9750 read=471
+                     ->  Seq Scan on violations x  (cost=0.00..12564.00 rows=375000 width=13) (actual time=0.009..32.964 rows=375000 loops=1)
+                           Buffers: shared hit=8343 read=471
+                     ->  Hash  (cost=2688.85..2688.85 rows=5455 width=64) (actual time=17.043..17.047 rows=5455 loops=1)
+                           Buckets: 8192  Batches: 1  Memory Usage: 607kB
+                           Buffers: shared hit=1407
+                           ->  Hash Join  (cost=302.30..2688.85 rows=5455 width=64) (actual time=2.648..15.446 rows=5455 loops=1)
+                                 Hash Cond: (o.id = a.owner_id)
+                                 Buffers: shared hit=1407
+                                 ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.003..5.146 rows=60000 loops=1)
+                                       Buffers: shared hit=1207
+                                 ->  Hash  (cost=234.12..234.12 rows=5455 width=51) (actual time=2.606..2.608 rows=5455 loops=1)
+                                       Buckets: 8192  Batches: 1  Memory Usage: 534kB
+                                       Buffers: shared hit=200
+                                       ->  Index Scan using uq_appeals_one_pending_per_violation on appeals a  (cost=0.28..234.12 rows=5455 width=51) (actual time=0.016..1.504 rows=5455 loops=1)
+                                             Buffers: shared hit=200
+               ->  Memoize  (cost=0.15..0.17 rows=1 width=33) (actual time=0.000..0.000 rows=1 loops=5455)
+                     Cache Key: x.violation_type_id
+                     Cache Mode: logical
+                     Hits: 5405  Misses: 50  Evictions: 0  Overflows: 0  Memory Usage: 7kB
+                     Buffers: shared hit=100
+                     ->  Index Scan using violation_types_pkey on violation_types t  (cost=0.14..0.16 rows=1 width=33) (actual time=0.001..0.001 rows=1 loops=50)
+                           Index Cond: (id = x.violation_type_id)
+                           Buffers: shared hit=100
+ Planning:
+   Buffers: shared hit=424
+ Planning Time: 1.204 ms
+ Execution Time: 100.846 ms
+(38 rows)
+

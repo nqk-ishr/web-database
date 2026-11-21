@@ -26,3 +26,5 @@ backups/
 .vscode/
 .idea/
 .DS_Store
+
+backup/*.dum

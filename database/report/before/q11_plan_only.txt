@@ -1,0 +1,41 @@
+                                                                                                                                                                                                                                                                                           QUERY PLAN                                                                                                                                                                                                                                                                                           
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=12344508.81..1379407573.13 rows=112 width=104)
+   Group Key: (CASE WHEN (vt.max_service_years IS NULL) THEN 'unlimited'::text WHEN (EXTRACT(year FROM CURRENT_DATE) > ((v.manufacture_year + vt.max_service_years))::numeric) THEN 'expired'::text WHEN (EXTRACT(year FROM CURRENT_DATE) >= (((v.manufacture_year + vt.max_service_years) - 1))::numeric) THEN 'near_expiry'::text ELSE 'valid'::text END), (CASE WHEN ((max(i.expires_at)) IS NULL) THEN 'none'::text WHEN ((max(i.expires_at)) < CURRENT_DATE) THEN 'expired'::text WHEN ((max(i.expires_at)) <= (CURRENT_DATE + 30)) THEN 'expiring_30d'::text ELSE 'valid'::text END)
+   ->  Incremental Sort  (cost=12344508.81..1379406815.25 rows=75200 width=96)
+         Sort Key: (CASE WHEN (vt.max_service_years IS NULL) THEN 'unlimited'::text WHEN (EXTRACT(year FROM CURRENT_DATE) > ((v.manufacture_year + vt.max_service_years))::numeric) THEN 'expired'::text WHEN (EXTRACT(year FROM CURRENT_DATE) >= (((v.manufacture_year + vt.max_service_years) - 1))::numeric) THEN 'near_expiry'::text ELSE 'valid'::text END), (CASE WHEN ((max(i.expires_at)) IS NULL) THEN 'none'::text WHEN ((max(i.expires_at)) < CURRENT_DATE) THEN 'expired'::text WHEN ((max(i.expires_at)) <= (CURRENT_DATE + 30)) THEN 'expiring_30d'::text ELSE 'valid'::text END)
+         Presorted Key: (CASE WHEN (vt.max_service_years IS NULL) THEN 'unlimited'::text WHEN (EXTRACT(year FROM CURRENT_DATE) > ((v.manufacture_year + vt.max_service_years))::numeric) THEN 'expired'::text WHEN (EXTRACT(year FROM CURRENT_DATE) >= (((v.manufacture_year + vt.max_service_years) - 1))::numeric) THEN 'near_expiry'::text ELSE 'valid'::text END)
+         ->  Nested Loop Left Join  (cost=28640.67..1379402341.96 rows=75200 width=96)
+               ->  Nested Loop Left Join  (cost=13732.90..261021837.72 rows=75200 width=16)
+                     ->  Gather Merge  (cost=10252.88..18823.47 rows=75200 width=12)
+                           Workers Planned: 1
+                           ->  Sort  (cost=9252.87..9363.46 rows=44235 width=12)
+                                 Sort Key: (CASE WHEN (vt.max_service_years IS NULL) THEN 'unlimited'::text WHEN (EXTRACT(year FROM CURRENT_DATE) > ((v.manufacture_year + vt.max_service_years))::numeric) THEN 'expired'::text WHEN (EXTRACT(year FROM CURRENT_DATE) >= (((v.manufacture_year + vt.max_service_years) - 1))::numeric) THEN 'near_expiry'::text ELSE 'valid'::text END)
+                                 ->  Hash Left Join  (cost=3062.10..5839.50 rows=44235 width=12)
+                                       Hash Cond: (v.id = r.vehicle_id)
+                                       ->  Hash Join  (cost=1.23..2259.29 rows=44118 width=12)
+                                             Hash Cond: (v.vehicle_type_id = vt.id)
+                                             ->  Parallel Seq Scan on vehicles v  (cost=0.00..2093.18 rows=44118 width=12)
+                                             ->  Hash  (cost=1.10..1.10 rows=10 width=8)
+                                                   ->  Seq Scan on vehicle_types vt  (cost=0.00..1.10 rows=10 width=8)
+                                       ->  Hash  (cost=2120.88..2120.88 rows=75200 width=8)
+                                             ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=8)
+                                                   Filter: (status = 'active'::registration_status)
+                     ->  Memoize  (cost=3480.02..3480.03 rows=1 width=4)
+                           Cache Key: v.id
+                           Cache Mode: binary
+                           ->  Aggregate  (cost=3480.01..3480.02 rows=1 width=4)
+                                 ->  Seq Scan on inspections i  (cost=0.00..3480.00 rows=2 width=4)
+                                       Filter: ((vehicle_id = v.id) AND (result = 'passed'::inspection_result))
+               ->  Memoize  (cost=14907.77..14907.79 rows=1 width=32)
+                     Cache Key: v.id
+                     Cache Mode: binary
+                     ->  Subquery Scan on uf  (cost=14907.76..14907.78 rows=1 width=32)
+                           ->  Aggregate  (cost=14907.76..14907.77 rows=1 width=40)
+                                 ->  Seq Scan on violations x  (cost=0.00..14907.75 rows=2 width=5)
+                                       Filter: ((vehicle_id = v.id) AND (status = ANY ('{verified,notified,appealing}'::violation_status[])))
+ JIT:
+   Functions: 47
+   Options: Inlining true, Optimization true, Expressions true, Deforming true
+(37 rows)
+

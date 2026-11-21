@@ -1,0 +1,46 @@
+                                                                                         QUERY PLAN                                                                                         
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=16043.13..16043.26 rows=50 width=63) (actual time=133.733..133.745 rows=50 loops=1)
+   Buffers: shared hit=3041
+   ->  Sort  (cost=16043.13..16098.53 rows=22160 width=63) (actual time=133.732..133.739 rows=50 loops=1)
+         Sort Key: (sum(violations.fine_amount)) DESC
+         Sort Method: top-N heapsort  Memory: 30kB
+         Buffers: shared hit=3041
+         ->  Hash Join  (cost=5618.72..15306.99 rows=22160 width=63) (actual time=47.022..130.411 rows=11356 loops=1)
+               Hash Cond: (r.owner_id = o.id)
+               Buffers: shared hit=3038
+               ->  Hash Join  (cost=3061.72..12691.82 rows=22160 width=50) (actual time=27.188..105.089 rows=11356 loops=1)
+                     Hash Cond: (violations.vehicle_id = r.vehicle_id)
+                     Buffers: shared hit=1831
+                     ->  Merge Anti Join  (cost=0.84..9305.74 rows=27627 width=36) (actual time=0.104..72.727 rows=11356 loops=1)
+                           Merge Cond: (violations.vehicle_id = i.vehicle_id)
+                           Buffers: shared hit=882
+                           ->  GroupAggregate  (cost=0.42..5387.73 rows=55254 width=36) (actual time=0.074..54.331 rows=59055 loops=1)
+                                 Group Key: violations.vehicle_id
+                                 Buffers: shared hit=496
+                                 ->  Index Only Scan using idx_violations_unpaid on violations  (cost=0.42..4088.02 rows=121806 width=9) (actual time=0.053..15.063 rows=125517 loops=1)
+                                       Index Cond: (vehicle_id IS NOT NULL)
+                                       Heap Fetches: 0
+                                       Buffers: shared hit=496
+                           ->  Index Only Scan using idx_inspections_vehicle_passed on inspections i  (cost=0.42..3165.24 rows=56820 width=4) (actual time=0.027..8.146 rows=61118 loops=1)
+                                 Index Cond: (expires_at >= CURRENT_DATE)
+                                 Heap Fetches: 0
+                                 Buffers: shared hit=386
+                     ->  Hash  (cost=2120.88..2120.88 rows=75200 width=18) (actual time=26.448..26.449 rows=75000 loops=1)
+                           Buckets: 131072  Batches: 1  Memory Usage: 4833kB
+                           Buffers: shared hit=949
+                           ->  Seq Scan on registrations r  (cost=0.00..2120.88 rows=75200 width=18) (actual time=1.310..10.863 rows=75000 loops=1)
+                                 Filter: (status = 'active'::registration_status)
+                                 Rows Removed by Filter: 18750
+                                 Buffers: shared hit=949
+               ->  Hash  (cost=1807.00..1807.00 rows=60000 width=21) (actual time=19.550..19.551 rows=60000 loops=1)
+                     Buckets: 65536  Batches: 1  Memory Usage: 3742kB
+                     Buffers: shared hit=1207
+                     ->  Seq Scan on owners o  (cost=0.00..1807.00 rows=60000 width=21) (actual time=0.005..7.058 rows=60000 loops=1)
+                           Buffers: shared hit=1207
+ Planning:
+   Buffers: shared hit=442
+ Planning Time: 1.315 ms
+ Execution Time: 133.893 ms
+(42 rows)
+
