@@ -1,0 +1,22 @@
+VỀ VIỆC THÊM OWNER VÀ USER
+
+1. Không cần “thêm NULL” thủ công. Cột user_id không khai báo NOT NULL và không có DEFAULT, nên nếu bạn không điền nó, PostgreSQL tự để NULL. Cán bộ tạo chủ sở hữu mới chỉ cần điền họ tên, số định danh, địa chỉ...
+
+2. Chủ xe không “thêm thông tin về xe” để được liên kết. Việc liên kết là giữa tài khoản và hồ sơ chủ sở hữu, không liên quan đến xe. Xe gắn với chủ qua registrations, do cán bộ tạo. Khi chủ xe đăng nhập, backend dựa vào owners.user_id để biết họ là owner nào, rồi lấy các xe thuộc owner đó.
+
+Hai trường hợp khi liên kết
+
+Tài khoản có trước: người đó đăng ký tài khoản, backend tạo luôn dòng owners với user_id của họ, trong cùng một transaction.
+
+Hồ sơ chủ sở hữu có trước (cán bộ đã tạo khi đăng ký xe hoặc sang tên): khi người đó tạo tài khoản, backend tìm owner theo identity_no và gắn user_id vào:
+
+sql
+UPDATE owners
+SET user_id = :new_user_id
+WHERE identity_no = :identity_no AND user_id IS NULL;
+
+Nếu câu lệnh không cập nhật dòng nào thì có hai khả năng: không có hồ sơ nào với số định danh đó (tạo owner mới), hoặc hồ sơ đó đã được gắn với tài khoản khác (từ chối). Điều kiện user_id IS NULL cũng chặn trường hợp hai người cùng nhận một hồ sơ. identity_no là UNIQUE nên không thể có hai hồ sơ trùng số.
+
+Cần lưu ý về bảo mật
+
+Nếu liên kết chỉ dựa vào số CCCD, ai biết CCCD của người khác đều có thể nhận hồ sơ, xe và tiền phạt của họ. Với đồ án mô phỏng thì chấp nhận được, nhưng nên ghi vào phần giả định hoặc hạn chế. Cách chặt hơn là yêu cầu cán bộ xác nhận, hoặc đối chiếu thêm số điện thoại.
