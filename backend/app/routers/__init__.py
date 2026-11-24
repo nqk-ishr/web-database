@@ -9,7 +9,7 @@ hiểu là một mã và trả 422.
 """
 from fastapi import APIRouter
 
-from app.routers import admin, auth, catalog, details
+from app.routers import admin, attachments, auth, catalog, details
 from app.routers.officer import (claims, reports, requests as officer_requests,
                                  vehicles as officer_vehicles, violations as officer_violations)
 from app.routers.owner import (insurance, me, requests as owner_requests, vehicles as owner_vehicles,
@@ -17,5 +17,5 @@ from app.routers.owner import (insurance, me, requests as owner_requests, vehicl
 
 router = APIRouter()
 for module in (auth, admin, catalog, me, owner_vehicles, officer_vehicles, owner_violations, owner_requests,
-               insurance, officer_requests, officer_violations, claims, reports, details):
+               insurance, officer_requests, officer_violations, claims, reports, details, attachments):
     router.include_router(module.router)

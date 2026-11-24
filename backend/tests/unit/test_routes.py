@@ -16,7 +16,9 @@ client = TestClient(app)
     ("get", "/api/claims"), ("get", "/api/violations"),
     ("get", "/api/admin/users"),
     ("post", "/api/admin/users/1/deactivate"), ("post", "/api/admin/users/1/reset-password"),
-    ("get", "/api/admin/roles"), ("get", "/api/admin/insurers"),
+    ("get", "/api/admin/roles"), ("get", "/api/admin/insurers"), ("get", "/api/admin/audit-log"),
+    ("get", "/api/requests/1/attachments"), ("get", "/api/claims/1/attachments"), ("get", "/api/attachments/1"),
+    ("delete", "/api/attachments/1"),
 ])
 def test_requires_token(method, path):
     r = getattr(client, method)(path)

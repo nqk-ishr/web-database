@@ -19,6 +19,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://vehicle_app:change_me@localhost:5432/vehicle_db
+      UPLOAD_DIR: /tmp/uploads
       JWT_SECRET: ci-secret-key-ci-secret-key-ci-secret
       PGPASSWORD: change_me
     steps:
@@ -31,6 +32,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -h localhost -U vehicle_app -d vehicle_db -f database/schema.sql
           psql -v ON_ERROR_STOP=1 -h localhost -U vehicle_app -d vehicle_db -f database/seed.sql
           python backend/scripts/set_demo_passwords.py
+      - name: Áp dụng migration (audit_log, attachments)
+        run: |
+          pip install -r database/requirements-migrations.txt
+          cd database && alembic upgrade head
+          alembic downgrade -1 && alembic upgrade head      # kiểm tra cả downgrade
       - name: Kiểm thử
         working-directory: backend
         run: pytest -v

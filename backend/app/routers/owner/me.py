@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.config import LATE_FEE_RATE, OWNER, TODAY
 from app.core.security import need
+from app.routers.officer.requests import REQUEST_FROM, REQUEST_SELECT
 from app.db.session import q, tx
 
 router = APIRouter()
@@ -22,10 +23,11 @@ def my_vehicles(u=Depends(need(OWNER))):
 
 @router.get("/me/requests")
 def my_requests(u=Depends(need(OWNER))):
+    """Hồ sơ tôi gửi hoặc tôi là bên mua, kèm biển số, tên các bên và ghi chú của cán bộ."""
     with tx() as cur:
-        return q(cur, """SELECT * FROM registration_requests
-                         WHERE requester_id = %s OR buyer_id = %s
-                         ORDER BY submitted_at DESC""", (u["user_id"], u["user_id"]))
+        return q(cur, f"""SELECT {REQUEST_SELECT} {REQUEST_FROM}
+                          WHERE r.requester_id = %(uid)s OR r.buyer_id = %(uid)s
+                          ORDER BY r.submitted_at DESC, r.request_id DESC""", {"uid": u["user_id"]})
 
 
 @router.get("/me/violations")
@@ -47,10 +49,11 @@ def my_violations(u=Depends(need(OWNER))):
 def my_policies(u=Depends(need(OWNER))):
     with tx() as cur:
         return q(cur, f"""
-            SELECT po.*, pr.name AS product_name, ve.plate_number,
+            SELECT po.*, pr.name AS product_name, pr.term_months, i.name AS insurer, ve.plate_number,
                    (po.status = 'active' AND po.end_date < {TODAY}) AS is_expired
             FROM insurance_policies po
             JOIN insurance_products pr USING (product_id)
+            JOIN insurers i ON i.insurer_id = pr.insurer_id
             JOIN vehicles ve USING (vehicle_id)
             WHERE po.buyer_id = %s ORDER BY po.created_at DESC""", (u["user_id"],))
 
@@ -58,8 +61,16 @@ def my_policies(u=Depends(need(OWNER))):
 @router.get("/me/claims")
 def my_claims(u=Depends(need(OWNER))):
     with tx() as cur:
-        return q(cur, "SELECT * FROM insurance_claims WHERE claimant_id = %s ORDER BY created_at DESC",
-                 (u["user_id"],))
+        return q(cur, """SELECT c.claim_id, c.policy_id, c.claim_type, c.status, c.event_time, c.event_location,
+                                c.requested_amount, c.approved_amount, c.review_note, c.cancel_reason, c.paid_at,
+                                c.created_at, c.updated_at, po.certificate_code, po.vehicle_id, ve.plate_number,
+                                pr.name AS product_name, i.name AS insurer
+                         FROM insurance_claims c
+                         JOIN insurance_policies po ON po.policy_id = c.policy_id
+                         JOIN insurance_products pr ON pr.product_id = po.product_id
+                         JOIN insurers i            ON i.insurer_id = pr.insurer_id
+                         JOIN vehicles ve           ON ve.vehicle_id = po.vehicle_id
+                         WHERE c.claimant_id = %s ORDER BY c.created_at DESC, c.claim_id DESC""", (u["user_id"],))
 
 
 @router.get("/insurance/products")

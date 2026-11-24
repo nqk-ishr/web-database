@@ -7,16 +7,18 @@ Ghi chú thiết kế:
   * Đặt lại mật khẩu KHÔNG thu hồi token đang dùng (schema chưa có cột phiên bản); token hết hạn
     sau JWT_EXPIRE_MINUTES. Muốn chặn ngay thì khóa tài khoản.
 """
+import datetime as dt
 import secrets
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.config import ADMIN
-from app.core.pagination import PageParams, like, paginate
+from app.core.pagination import PageParams, add_date_range, like, paginate
 from app.core.security import hash_password, need
 from app.db.session import found, q, q1, tx
 from app.schemas.admin import NewUser, ResetPassword, RoleCode, UpdateUser
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -94,6 +96,8 @@ def create_user(b: NewUser, u=Depends(need(ADMIN))):
                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id""",
                  (role["role_id"], b.insurer_id, b.username, hash_password(password), b.full_name.strip(),
                   b.citizen_id, b.phone, b.email))
+        log_audit(cur, u["user_id"], "user.create", "user", new["user_id"],
+                  {"username": b.username, "role": b.role, "insurer_id": b.insurer_id})
         user = _get_user(cur, new["user_id"])
     if b.password is None:
         user["temporary_password"] = password          # chỉ hiện đúng một lần, không lưu ở đâu khác
@@ -120,6 +124,7 @@ def update_user(uid: int, b: UpdateUser, u=Depends(need(ADMIN))):
         cols = list(changes)                              # tên cột lấy từ model, không phải từ người dùng
         cur.execute(f"UPDATE users SET {', '.join(c + ' = %(' + c + ')s' for c in cols)} WHERE user_id = %(uid)s",
                     {**changes, "uid": uid})
+        log_audit(cur, u["user_id"], "user.update", "user", uid, {"fields": cols})
         return _get_user(cur, uid)
 
 
@@ -129,6 +134,7 @@ def _set_active(uid: int, active: bool, admin):
     with tx() as cur:
         found(q1(cur, "SELECT 1 FROM users WHERE user_id = %s FOR UPDATE", (uid,)), "Không tìm thấy tài khoản")
         cur.execute("UPDATE users SET is_active = %s WHERE user_id = %s", (active, uid))
+        log_audit(cur, admin["user_id"], "user.activate" if active else "user.deactivate", "user", uid)
         return _get_user(cur, uid)
 
 
@@ -148,4 +154,25 @@ def reset_password(uid: int, b: ResetPassword = ResetPassword(), u=Depends(need(
     with tx() as cur:
         found(q1(cur, "SELECT 1 FROM users WHERE user_id = %s FOR UPDATE", (uid,)), "Không tìm thấy tài khoản")
         cur.execute("UPDATE users SET password_hash = %s WHERE user_id = %s", (hash_password(password), uid))
+        log_audit(cur, u["user_id"], "user.reset_password", "user", uid)      # không ghi mật khẩu
     return {"user_id": uid, **({"temporary_password": password} if b.new_password is None else {"ok": True})}
+
+
+@router.get("/audit-log")
+def audit_log(actor_id: Optional[int] = None, action: Optional[str] = Query(None, max_length=60),
+              entity_type: Optional[str] = Query(None, max_length=40), entity_id: Optional[int] = None,
+              from_date: Optional[dt.date] = None, to_date: Optional[dt.date] = None,
+              pg: PageParams = Depends(), u=Depends(need(ADMIN))):
+    """Nhật ký thao tác của cán bộ và quản trị, mới nhất trước."""
+    where, args = [], {}
+    for col, key, val in (("a.actor_id", "actor", actor_id), ("a.action", "action", action),
+                          ("a.entity_type", "etype", entity_type), ("a.entity_id", "eid", entity_id)):
+        if val is not None:
+            where.append(f"{col} = %({key})s")
+            args[key] = val
+    add_date_range(where, args, "a.created_at", from_date, to_date)
+    with tx() as cur:
+        return paginate(cur, "a.audit_id, a.actor_id, us.username AS actor, a.action, a.entity_type, a.entity_id, "
+                             "a.detail, a.created_at",
+                        "FROM audit_log a LEFT JOIN users us ON us.user_id = a.actor_id",
+                        where, args, "a.audit_id DESC", pg)

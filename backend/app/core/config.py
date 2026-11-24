@@ -7,6 +7,10 @@ JWT_EXPIRE_MINUTES = int(os.environ.get("JWT_EXPIRE_MINUTES", "60"))
 # Danh sách origin được phép gọi API từ trình duyệt, phân tách bằng dấu phẩy
 CORS_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
 
+# Tệp đính kèm (giấy tờ hồ sơ, chứng từ bồi thường)
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "/var/app/uploads")
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+
 TZ = "Asia/Ho_Chi_Minh"
 TODAY = f"(now() AT TIME ZONE '{TZ}')::date"      # "hôm nay" theo giờ Việt Nam, dùng trong SQL
 LATE_FEE_RATE = "0.0005"                            # 0,05% số tiền phạt mỗi ngày quá hạn (đơn giản hóa)

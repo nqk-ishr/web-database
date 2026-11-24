@@ -14,9 +14,13 @@ SELECT v.vehicle_id, v.plate_number, v.status, v.manufacture_year,
        (SELECT count(*) FROM violations x
          WHERE x.vehicle_id = v.vehicle_id AND x.status = 'notified'
            AND (%(uid)s::bigint IS NULL OR x.liable_owner_id = %(uid)s))::int AS unpaid_violations,
+       -- Vi phạm chặn sang tên (khớp fn_assert_transfer_allowed): đã xác minh HOẶC đã thông báo, chưa nộp
+       (SELECT count(*) FROM violations x
+         WHERE x.vehicle_id = v.vehicle_id AND x.status IN ('verified', 'notified')
+           AND (%(uid)s::bigint IS NULL OR x.liable_owner_id = %(uid)s))::int AS blocking_violations,
        (SELECT us.full_name FROM ownership_history oh JOIN users us ON us.user_id = oh.owner_id
          WHERE oh.vehicle_id = v.vehicle_id AND oh.valid_to IS NULL) AS current_owner,
-       (SELECT json_build_object('status', po.status, 'product_name', pr.name,
+       (SELECT json_build_object('policy_id', po.policy_id, 'status', po.status, 'product_name', pr.name,
                                  'start_date', po.start_date, 'end_date', po.end_date,
                                  'liability_limit', po.liability_limit,
                                  'includes_theft', po.includes_theft)

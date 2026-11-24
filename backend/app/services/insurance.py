@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.core.config import OPEN_REQUEST
 from app.db.session import found, q1, tx
+from app.services.audit import log_audit
 from app.services.common import gateway_ref, log_vehicle
 
 
@@ -112,6 +113,7 @@ def staff_step(cid, from_status, to_status, u, set_sql, args):
             raise HTTPException(409, f"Yêu cầu đang ở trạng thái {c['status']}, không thực hiện được")
         cur.execute(f"UPDATE insurance_claims SET status = %s, {set_sql} WHERE claim_id = %s",
                     (to_status, *args, cid))
+        log_audit(cur, u["user_id"], f"claim.{to_status}", "insurance_claim", cid, {"from": from_status})
     return {"claim_id": cid, "status": to_status}
 
 
@@ -170,4 +172,6 @@ def approve_claim(cid, b, u):
             log_vehicle(cur, vid, "reported_stolen", "normal", "stolen", "Duyệt bồi thường mất cắp",
                         u["user_id"], claim_id=cid)
             out["vehicle_status"] = "stolen"
+        log_audit(cur, u["user_id"], "claim.approved", "insurance_claim", cid,
+                  {"approved_amount": b.approved_amount, "theft": theft})
         return out

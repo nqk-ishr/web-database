@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
+import { ToastProvider } from "./components/ui/Toast";
 import App from "./App";
 import "./styles/index.css";
 
@@ -10,6 +11,10 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, ref
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter><AuthProvider><App /></AuthProvider></BrowserRouter>
+    <BrowserRouter>
+      <ToastProvider>
+        <AuthProvider><App /></AuthProvider>
+      </ToastProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );

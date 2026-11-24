@@ -21,7 +21,7 @@ REQUEST_SELECT = """
     vt.name AS declared_vehicle_type,
     r.requester_id, rq.full_name AS requester_name,
     r.buyer_id, bu.full_name AS buyer_name,
-    r.submitted_at, r.updated_at"""
+    r.review_note, r.submitted_at, r.updated_at"""
 REQUEST_FROM = """
     FROM registration_requests r
     LEFT JOIN vehicles ve      ON ve.vehicle_id = r.vehicle_id
