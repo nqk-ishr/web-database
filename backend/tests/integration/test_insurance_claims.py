@@ -122,12 +122,13 @@ def test_claim_reject_and_withdraw(client, owner, other_owner, make_vehicle, act
 
 
 def test_claim_rules_enforced_by_database(client, owner, other_owner, make_vehicle, active_policy, first_product,
-                                          buy_policy, make_claim):
+                                          buy_policy, make_claim, ownership_start):
     v = make_vehicle(owner)
     pid = active_policy(owner, v)
     future = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=1)).isoformat()
     assert make_claim(owner, v, pid, event=future).status_code == 409               # sự kiện ở tương lai
-    assert make_claim(other_owner, v, pid).status_code == 409                       # không phải chủ xe lúc xảy ra
+    owner_since = ownership_start(owner, v["vehicle_id"])
+    assert make_claim(other_owner, v, pid, event=owner_since).status_code == 409      # không phải chủ xe lúc xảy ra
     long_ago = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=400)).isoformat()
     assert make_claim(owner, v, pid, event=long_ago).status_code == 409            # ngoài hiệu lực hợp đồng
     assert make_claim(owner, v, pid, amount=0).status_code == 422
