@@ -22,6 +22,10 @@ CONSTRAINT_MSG = {
     "ex_policy_no_overlap": "Khoảng hiệu lực chồng với một hợp đồng đang hiệu lực của xe",
     "uq_claim_one_open_theft": "Hợp đồng này đã có một yêu cầu mất cắp đang mở",
     "ex_ownership_no_overlap": "Khoảng thời gian sở hữu bị chồng lấn",
+    "users_username_key": "Tên đăng nhập đã tồn tại",
+    "users_citizen_id_key": "Số CCCD/CMND đã được đăng ký",
+    "users_email_key": "Email đã được đăng ký",
+    "ck_users_citizen_format": "Số CCCD/CMND phải gồm 9 đến 12 chữ số",
 }
 
 

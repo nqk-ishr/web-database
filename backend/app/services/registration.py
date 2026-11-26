@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.core.config import OPEN_REQUEST, OWNER
 from app.db.session import found, q1, tx
+from app.services.audit import log_audit
 from app.services.common import log_vehicle
 
 
@@ -35,7 +36,7 @@ def submit_transfer(b, u):
                           RETURNING request_id, status""", (b.vehicle_id, u["user_id"], b.buyer_id))
 
 
-def request_step(rid, allowed_status, to_status, who, set_sql="", args=()):
+def request_step(rid, allowed_status, to_status, who, set_sql="", args=(), audit=None):
     """Đổi trạng thái hồ sơ sau khi khóa hàng và kiểm tra người thao tác + trạng thái hiện tại."""
     with tx() as cur:
         r = found(q1(cur, "SELECT * FROM registration_requests WHERE request_id = %s FOR UPDATE", (rid,)))
@@ -45,6 +46,8 @@ def request_step(rid, allowed_status, to_status, who, set_sql="", args=()):
             raise HTTPException(409, f"Hồ sơ đang ở trạng thái {r['status']}, không thực hiện được")
         cur.execute(f"UPDATE registration_requests SET status = %s{set_sql} WHERE request_id = %s",
                     (to_status, *args, rid))
+        if audit:   # (actor_id, action) cho thao tác của cán bộ
+            log_audit(cur, audit[0], audit[1], "registration_request", rid, {"from": r["status"], "to": to_status})
     return {"request_id": rid, "status": to_status}
 
 
@@ -73,12 +76,14 @@ def requester_resubmit(rid, u):
 
 def registrar_reject(rid, b, u):
     return request_step(rid, ("pending_approval",), "rejected", lambda r: True,
-                        ", reviewer_id = %s, review_note = %s", (u["user_id"], b.note))
+                        ", reviewer_id = %s, review_note = %s", (u["user_id"], b.note),
+                        audit=(u["user_id"], "request.reject"))
 
 
 def registrar_request_info(rid, b, u):
     return request_step(rid, ("pending_approval",), "needs_more_info", lambda r: True,
-                        ", reviewer_id = %s, review_note = %s", (u["user_id"], b.note))
+                        ", reviewer_id = %s, review_note = %s", (u["user_id"], b.note),
+                        audit=(u["user_id"], "request.request_info"))
 
 
 def approve_request(rid, b, u):
@@ -106,6 +111,8 @@ def approve_request(rid, b, u):
                            SET vehicle_id = %s, status = 'approved', reviewer_id = %s WHERE request_id = %s""",
                         (vid, u["user_id"], rid))
             log_vehicle(cur, vid, "registered", None, "normal", "Đăng ký mới", u["user_id"], request_id=rid)
+            log_audit(cur, u["user_id"], "request.approve", "registration_request", rid,
+                      {"type": "new_registration", "vehicle_id": vid, "plate_number": plate})
             return {"request_id": rid, "status": "approved", "vehicle_id": vid, "plate_number": plate}
 
         # sang tên: trigger kiểm tra lại xe Bình thường và chủ không còn nợ phạt
@@ -122,6 +129,8 @@ def approve_request(rid, b, u):
         log_vehicle(cur, vid, "ownership_transferred", "normal", "normal",
                     f"Sang tên từ user {req['requester_id']} sang user {req['buyer_id']}",
                     u["user_id"], request_id=rid)
+        log_audit(cur, u["user_id"], "request.approve", "registration_request", rid,
+                  {"type": "transfer", "vehicle_id": vid, "from": req["requester_id"], "to": req["buyer_id"]})
         return {"request_id": rid, "status": "approved", "vehicle_id": vid}
 
 
@@ -133,4 +142,5 @@ def vehicle_from_stolen(vid, new_status, event, reason, u):
             raise HTTPException(409, "Chỉ xử lý được xe đang ở trạng thái Báo mất")
         cur.execute("UPDATE vehicles SET status = %s WHERE vehicle_id = %s", (new_status, vid))
         log_vehicle(cur, vid, event, "stolen", new_status, reason, u["user_id"])
+        log_audit(cur, u["user_id"], f"vehicle.{event}", "vehicle", vid, {"reason": reason})
     return {"vehicle_id": vid, "status": new_status}

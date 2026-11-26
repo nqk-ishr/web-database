@@ -1,4 +1,10 @@
 # Dùng khi PHÁT TRIỂN trên một máy. Bản nộp phải chạy trên 3 VM riêng (xem deploy/).
+#   cp .env.example .env
+#   docker compose up -d --build
+#   docker compose exec backend python scripts/set_demo_passwords.py   # mật khẩu demo: Demo@123
+# Lần đầu db tự nạp schema.sql + seed.sql (chỉ khi volume pgdata còn trống;
+# muốn nạp lại: docker compose down -v). Dịch vụ "migrate" chạy Alembic (audit_log, attachments)
+# rồi thoát; backend chỉ khởi động sau khi migrate thành công.
 services:
   db:
     image: postgres:16
@@ -7,17 +13,49 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      # -h 127.0.0.1: máy chủ tạm lúc initdb chỉ nghe unix socket, nên chỉ báo "sẵn sàng" khi đã nạp xong
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
-  # Bỏ chú thích khi backend/frontend đã có Dockerfile
-  # backend:
-  #   build: ./backend
-  #   env_file: .env
-  #   depends_on: [db]
-  #   ports: ["8000:8000"]
-  #
-  # frontend:
-  #   build: ./frontend
-  #   ports: ["3000:80"]
+  migrate:
+    build:
+      context: ./database
+      dockerfile: Dockerfile.migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ./backend
+    env_file: .env
+    environment:
+      # Trong mạng compose, CSDL có tên máy là "db" (không phải localhost)
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      UPLOAD_DIR: /var/app/uploads
+    volumes:
+      - uploads:/var/app/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports: ["8000:8000"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000/api
+    depends_on: [backend]
+    ports: ["3000:80"]
 
 volumes:
   pgdata:
+  uploads:
