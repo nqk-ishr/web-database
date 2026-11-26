@@ -20,10 +20,12 @@ build/
 *.dump
 *.backup
 *.sql.gz
-database/seed/large/
 backups/
 
 # IDE / hệ điều hành
 .vscode/
 .idea/
 .DS_Store
+
+# tài liệu yêu cầu của giảng viên (chỉ giữ ở máy)
+Thong_bao_Project_cuoi_ky_2026.pdf
