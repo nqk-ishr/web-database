@@ -135,8 +135,6 @@ Table cameras {
   camera_id         int [pk, increment]
   camera_code       varchar(30) [not null, unique]
   location          text [not null, note: 'Vị trí địa lý camera']
-  installation_date date
-  status            camera_status [not null, default: 'Active']
 
   Note: 'Camera phạt nguội (Tách bảng khỏi Violations để đạt chuẩn 3NF)'
 }
