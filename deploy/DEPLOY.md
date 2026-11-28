@@ -56,7 +56,7 @@ Các container đặt `restart: unless-stopped` nên tự chạy lại. Đã kh�
 - Đăng nhập lại thành công, dữ liệu vẫn còn.
 - Từ máy ngoài, `Test-NetConnection` tới VM3:5432 và VM2:8000 đều bị chặn.
 
-Minh chứng: `docs/evidence/`.
+Minh chứng: `docs/evidence/07-bonus.md`.
 
 ## Tài khoản demo
 
