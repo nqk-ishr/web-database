@@ -4,7 +4,7 @@
 -- 16 bảng: đăng ký/sang tên, vi phạm/nộp phạt, bảo hiểm TNDS.
 --
 -- Chạy:  psql -v ON_ERROR_STOP=1 -d <tên_db> -f schema.sql
--- Sau đó nạp danh mục mẫu:  psql -d <tên_db> -f seed_catalog.sql
+-- Sau đó nạp dữ liệu mẫu (danh mục + demo):  psql -v ON_ERROR_STOP=1 -d <tên_db> -f seed.sql
 --
 -- Quy ước:
 --  * Tên bảng/cột dùng snake_case (Roles -> roles, VehicleTypes -> vehicle_types...).
@@ -104,7 +104,7 @@ CREATE TABLE cameras (
 -- ---------------------------------------------------------------------
 CREATE TABLE vehicles (
     vehicle_id        BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    plate_number      VARCHAR(15) NOT NULL UNIQUE,
+    plate_number      VARCHAR(15) NOT NULL UNIQUE, -- biển số xe
     chassis_number    VARCHAR(30) NOT NULL UNIQUE,
     engine_number     VARCHAR(30) NOT NULL UNIQUE,
     manufacture_year  SMALLINT    NOT NULL,
@@ -129,7 +129,7 @@ CREATE TABLE ownership_history (
 -- một xe chỉ có một chủ hiện hành
 CREATE UNIQUE INDEX uq_ownership_one_current ON ownership_history (vehicle_id) WHERE valid_to IS NULL;
 
-CREATE TABLE registration_requests (
+CREATE TABLE registration_requests ( -- đăng ký mới hoặc sang tên
     request_id                BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     request_type              request_type   NOT NULL,
     status                    request_status NOT NULL,
@@ -137,8 +137,8 @@ CREATE TABLE registration_requests (
     requester_id              BIGINT   NOT NULL REFERENCES users(user_id), -- chủ xe gửi (bên bán nếu sang tên)
     buyer_id                  BIGINT   REFERENCES users(user_id),          -- chỉ sang tên
     declared_vehicle_type_id  SMALLINT REFERENCES vehicle_types(vehicle_type_id),   -- chỉ đăng ký mới
-    declared_chassis_number   VARCHAR(30),
-    declared_engine_number    VARCHAR(30),
+    declared_chassis_number   VARCHAR(30), -- số khung
+    declared_engine_number    VARCHAR(30), -- số máy
     declared_manufacture_year SMALLINT,
     reviewer_id               BIGINT   REFERENCES users(user_id),
     review_note               VARCHAR(500),

@@ -1,8 +1,8 @@
 -- =====================================================================
--- seed_new.sql — Dữ liệu mẫu (danh mục + demo) khớp với schema.sql (16 bảng)
+-- seed.sql — Dữ liệu mẫu (danh mục + demo) khớp với schema.sql (16 bảng)
 -- Chạy:  psql -v ON_ERROR_STOP=1 -d <db> -f schema.sql
---        psql -v ON_ERROR_STOP=1 -d <db> -f seed_new.sql
--- File này THAY THẾ seed_catalog.sql (đừng chạy cả hai). Các bảng phải đang TRỐNG.
+--        psql -v ON_ERROR_STOP=1 -d <db> -f seed.sql
+-- Các bảng phải đang TRỐNG.
 -- Bối cảnh: TP. Hồ Chí Minh. Dữ liệu mang tính minh họa, không phải số liệu thật.
 -- "Hôm nay" của bộ dữ liệu: 2026-11-07 (quá hạn / sắp hết hạn tính theo ngày này).
 --
