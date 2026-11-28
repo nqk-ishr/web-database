@@ -1,0 +1,41 @@
+                                                                           QUERY PLAN                                                                           
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Incremental Sort  (cost=59422.40..71419.54 rows=145896 width=115) (actual time=185.822..185.874 rows=36 loops=1)
+   Sort Key: m.thang, (row_number() OVER (?))
+   Presorted Key: m.thang
+   Full-sort Groups: 2  Sort Method: quicksort  Average Memory: 28kB  Peak Memory: 28kB
+   Buffers: shared hit=5935, temp read=1882 written=1887
+   ->  WindowAgg  (cost=59371.30..62653.96 rows=145896 width=115) (actual time=185.481..185.828 rows=36 loops=1)
+         Run Condition: (row_number() OVER (?) <= 3)
+         Buffers: shared hit=5929, temp read=1882 written=1887
+         ->  Sort  (cost=59371.30..59736.04 rows=145896 width=107) (actual time=185.469..185.614 rows=3600 loops=1)
+               Sort Key: m.thang, m.so_vi_pham DESC, m.code
+               Sort Method: quicksort  Memory: 483kB
+               Buffers: shared hit=5929, temp read=1882 written=1887
+               ->  Subquery Scan on m  (cost=32176.30..38376.88 rows=145896 width=107) (actual time=150.425..183.184 rows=3600 loops=1)
+                     Buffers: shared hit=5926, temp read=1882 written=1887
+                     ->  GroupAggregate  (cost=32176.30..36917.92 rows=145896 width=119) (actual time=150.423..182.878 rows=3600 loops=1)
+                           Group Key: c.camera_id, (date_trunc('month'::text, x.occurred_at))
+                           Buffers: shared hit=5926, temp read=1882 written=1887
+                           ->  Sort  (cost=32176.30..32541.04 rows=145896 width=88) (actual time=150.392..166.266 rows=146193 loops=1)
+                                 Sort Key: c.camera_id, (date_trunc('month'::text, x.occurred_at))
+                                 Sort Method: external merge  Disk: 15056kB
+                                 Buffers: shared hit=5926, temp read=1882 written=1887
+                                 ->  Hash Join  (cost=10.75..12679.87 rows=145896 width=88) (actual time=2.327..95.164 rows=146193 loops=1)
+                                       Hash Cond: (x.camera_id = c.camera_id)
+                                       Buffers: shared hit=5920
+                                       ->  Seq Scan on violations x  (cost=0.00..11916.00 rows=145896 width=17) (actual time=2.160..62.101 rows=146193 loops=1)
+                                             Filter: (occurred_at >= (date_trunc('month'::text, now()) - '11 mons'::interval))
+                                             Rows Removed by Filter: 153807
+                                             Buffers: shared hit=5916
+                                       ->  Hash  (cost=7.00..7.00 rows=300 width=67) (actual time=0.146..0.148 rows=300 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 38kB
+                                             Buffers: shared hit=4
+                                             ->  Seq Scan on cameras c  (cost=0.00..7.00 rows=300 width=67) (actual time=0.007..0.038 rows=300 loops=1)
+                                                   Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=334
+ Planning Time: 1.237 ms
+ Execution Time: 187.060 ms
+(37 rows)
+

@@ -7,6 +7,7 @@ python generate_data.py --large    # bộ dữ liệu lớn (Violations ~120.000
 ```
 
 ## Thống kê số dòng (điền sau khi chạy)
+
 | Bảng | Demo | Lớn |
-|---|---|---|
-| TODO | | |
+| ---- | ---- | --- |
+| TODO |      |     |

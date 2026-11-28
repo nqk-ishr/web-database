@@ -1,0 +1,11 @@
+q01_vi_pham_qua_han_nop_phat	128.186	shared hit=7177
+q02_chu_xe_vi_pham_nhieu_nhat	375.000	shared hit=7384, temp read=1282 written=2052
+q03_tien_phat_chua_nop_theo_loi	49.980	shared hit=5897
+q04_vi_pham_theo_camera_thang	187.060	shared hit=5935, temp read=1882 written=1887
+q05_lich_su_vi_pham_cua_xe	30.713	shared hit=5920
+q06_lich_su_sang_ten	196.529	shared hit=5423, temp read=391 written=392
+q07_ho_so_cho_duyet_lau_nhat	0.367	shared hit=72
+q08_bao_hiem_sap_het_han	3.395	shared hit=1002
+q09_no_phat_khong_co_bao_hiem	167.454	shared hit=8403, temp read=193 written=357
+q10_doanh_thu_boi_thuong_cong_ty_bh	53.802	shared hit=2468
+q11_bao_cao_tinh_trang_xe_view	TIMEOUT>60000	

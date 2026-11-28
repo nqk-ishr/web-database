@@ -1,0 +1,35 @@
+                                                                    QUERY PLAN                                                                     
+---------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=56342.77..56492.85 rows=60032 width=73) (actual time=327.379..327.384 rows=10 loops=1)
+   Sort Key: (rank() OVER (?)), u.user_id
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=7384, temp read=1282 written=2052
+   ->  WindowAgg  (cost=47857.13..48907.69 rows=60032 width=73) (actual time=327.347..327.358 rows=10 loops=1)
+         Run Condition: (rank() OVER (?) <= 10)
+         Buffers: shared hit=7381, temp read=1282 written=2052
+         ->  Sort  (cost=47857.13..48007.21 rows=60032 width=65) (actual time=327.337..327.342 rows=11 loops=1)
+               Sort Key: (count(*)) DESC
+               Sort Method: external merge  Disk: 2648kB
+               Buffers: shared hit=7381, temp read=1282 written=2052
+               ->  HashAggregate  (cost=36074.92..40628.56 rows=60032 width=65) (actual time=257.844..314.459 rows=55572 loops=1)
+                     Group Key: u.user_id
+                     Planned Partitions: 4  Batches: 5  Memory Usage: 8241kB  Disk Usage: 7944kB
+                     Buffers: shared hit=7381, temp read=982 written=1720
+                     ->  Hash Join  (cost=2815.72..13212.00 rows=278180 width=30) (actual time=15.764..145.968 rows=273665 loops=1)
+                           Hash Cond: (x.liable_owner_id = u.user_id)
+                           Buffers: shared hit=7381
+                           ->  Seq Scan on violations x  (cost=0.00..9666.00 rows=278180 width=13) (actual time=0.012..42.954 rows=278465 loops=1)
+                                 Filter: (status <> 'cancelled'::violation_status)
+                                 Rows Removed by Filter: 21535
+                                 Buffers: shared hit=5916
+                           ->  Hash  (cost=2065.32..2065.32 rows=60032 width=25) (actual time=15.552..15.554 rows=60032 loops=1)
+                                 Buckets: 65536  Batches: 1  Memory Usage: 3892kB
+                                 Buffers: shared hit=1465
+                                 ->  Seq Scan on users u  (cost=0.00..2065.32 rows=60032 width=25) (actual time=0.003..6.509 rows=60032 loops=1)
+                                       Buffers: shared hit=1465
+ Planning:
+   Buffers: shared hit=387
+ Planning Time: 0.910 ms
+ Execution Time: 328.440 ms
+(31 rows)
+

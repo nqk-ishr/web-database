@@ -1,0 +1,50 @@
+                                                                                QUERY PLAN                                                                                
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=27056.44..27056.56 rows=50 width=52) (actual time=154.394..154.408 rows=50 loops=1)
+   Buffers: shared hit=5423, temp read=391 written=392
+   ->  Sort  (cost=27056.44..27289.64 rows=93281 width=52) (actual time=154.392..154.402 rows=50 loops=1)
+         Sort Key: h.valid_from DESC
+         Sort Method: top-N heapsort  Memory: 35kB
+         Buffers: shared hit=5423, temp read=391 written=392
+         ->  Hash Join  (cost=20410.56..23957.71 rows=93281 width=52) (actual time=82.432..151.032 rows=18750 loops=1)
+               Hash Cond: (h.prev_owner = pu.user_id)
+               Buffers: shared hit=5420, temp read=391 written=392
+               ->  Hash Join  (cost=17594.84..20897.10 rows=93281 width=43) (actual time=62.503..119.828 rows=18750 loops=1)
+                     Hash Cond: (h.owner_id = nu.user_id)
+                     Buffers: shared hit=3955, temp read=391 written=392
+                     ->  Hash Join  (cost=14779.12..17836.50 rows=93281 width=34) (actual time=45.918..92.210 rows=18750 loops=1)
+                           Hash Cond: (h.vehicle_id = v.vehicle_id)
+                           Buffers: shared hit=2490, temp read=391 written=392
+                           ->  Subquery Scan on h  (cost=11312.62..14125.12 rows=93281 width=32) (actual time=23.402..60.286 rows=18750 loops=1)
+                                 Filter: (h.prev_owner IS NOT NULL)
+                                 Rows Removed by Filter: 75000
+                                 Buffers: shared hit=711, temp read=391 written=392
+                                 ->  WindowAgg  (cost=11312.62..13187.62 rows=93750 width=32) (actual time=23.391..55.838 rows=93750 loops=1)
+                                       Buffers: shared hit=711, temp read=391 written=392
+                                       ->  Sort  (cost=11312.62..11547.00 rows=93750 width=24) (actual time=23.372..29.870 rows=93750 loops=1)
+                                             Sort Key: oh.vehicle_id, oh.valid_from
+                                             Sort Method: external merge  Disk: 3128kB
+                                             Buffers: shared hit=711, temp read=391 written=392
+                                             ->  Seq Scan on ownership_history oh  (cost=0.00..1645.50 rows=93750 width=24) (actual time=0.021..7.078 rows=93750 loops=1)
+                                                   Buffers: shared hit=708
+                           ->  Hash  (cost=2529.00..2529.00 rows=75000 width=18) (actual time=22.034..22.036 rows=75000 loops=1)
+                                 Buckets: 131072  Batches: 1  Memory Usage: 5126kB
+                                 Buffers: shared hit=1779
+                                 ->  Seq Scan on vehicles v  (cost=0.00..2529.00 rows=75000 width=18) (actual time=1.043..8.104 rows=75000 loops=1)
+                                       Buffers: shared hit=1779
+                     ->  Hash  (cost=2065.32..2065.32 rows=60032 width=25) (actual time=16.340..16.341 rows=60032 loops=1)
+                           Buckets: 65536  Batches: 1  Memory Usage: 4104kB
+                           Buffers: shared hit=1465
+                           ->  Seq Scan on users nu  (cost=0.00..2065.32 rows=60032 width=25) (actual time=0.010..6.010 rows=60032 loops=1)
+                                 Buffers: shared hit=1465
+               ->  Hash  (cost=2065.32..2065.32 rows=60032 width=25) (actual time=19.629..19.630 rows=60032 loops=1)
+                     Buckets: 65536  Batches: 1  Memory Usage: 4104kB
+                     Buffers: shared hit=1465
+                     ->  Seq Scan on users pu  (cost=0.00..2065.32 rows=60032 width=25) (actual time=0.008..7.706 rows=60032 loops=1)
+                           Buffers: shared hit=1465
+ Planning:
+   Buffers: shared hit=369
+ Planning Time: 1.054 ms
+ Execution Time: 154.933 ms
+(46 rows)
+

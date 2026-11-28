@@ -1,0 +1,29 @@
+                                                                                         QUERY PLAN                                                                                         
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1.30..1189.63 rows=100 width=57) (actual time=0.089..3.262 rows=100 loops=1)
+   Buffers: shared hit=1002
+   ->  Nested Loop  (cost=1.30..18146.97 rows=1527 width=57) (actual time=0.088..3.249 rows=100 loops=1)
+         Buffers: shared hit=1002
+         ->  Nested Loop  (cost=1.01..13790.99 rows=1527 width=44) (actual time=0.064..2.189 rows=100 loops=1)
+               Buffers: shared hit=702
+               ->  Nested Loop Anti Join  (cost=0.60..8303.80 rows=1527 width=42) (actual time=0.052..1.034 rows=100 loops=1)
+                     Buffers: shared hit=302
+                     ->  Index Scan using ix_policies_active_end on insurance_policies p  (cost=0.31..2957.65 rows=2291 width=42) (actual time=0.039..0.492 rows=100 loops=1)
+                           Index Cond: ((end_date >= ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date) AND (end_date <= (((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date + 30)))
+                           Buffers: shared hit=102
+                     ->  Index Scan using ix_policies_vehicle_end on insurance_policies n  (cost=0.29..2.41 rows=1 width=20) (actual time=0.005..0.005 rows=0 loops=100)
+                           Index Cond: ((vehicle_id = p.vehicle_id) AND (end_date > p.end_date))
+                           Filter: ((status = ANY ('{active,pending_payment}'::policy_status[])) AND (policy_id <> p.policy_id))
+                           Buffers: shared hit=200
+               ->  Index Scan using vehicles_pkey on vehicles v  (cost=0.42..3.59 rows=1 width=18) (actual time=0.011..0.011 rows=1 loops=100)
+                     Index Cond: (vehicle_id = p.vehicle_id)
+                     Buffers: shared hit=400
+         ->  Index Scan using users_pkey on users u  (cost=0.29..2.84 rows=1 width=25) (actual time=0.010..0.010 rows=1 loops=100)
+               Index Cond: (user_id = p.buyer_id)
+               Buffers: shared hit=300
+ Planning:
+   Buffers: shared hit=534
+ Planning Time: 2.084 ms
+ Execution Time: 3.395 ms
+(25 rows)
+

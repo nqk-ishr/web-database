@@ -1,0 +1,47 @@
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=21110.89..21111.02 rows=50 width=58) (actual time=166.596..166.614 rows=50 loops=1)
+   Buffers: shared hit=8403, temp read=193 written=357
+   ->  Sort  (cost=21110.89..21166.71 rows=22328 width=58) (actual time=166.594..166.607 rows=50 loops=1)
+         Sort Key: (sum(violations.fine_amount)) DESC NULLS LAST
+         Sort Method: top-N heapsort  Memory: 30kB
+         Buffers: shared hit=8403, temp read=193 written=357
+         ->  Hash Anti Join  (cost=17277.68..20369.17 rows=22328 width=58) (actual time=112.870..162.423 rows=25746 loops=1)
+               Hash Cond: (violations.vehicle_id = p.vehicle_id)
+               Buffers: shared hit=8400, temp read=193 written=357
+               ->  Hash Join  (cost=14768.68..17494.57 rows=44655 width=58) (actual time=102.969..139.139 rows=46886 loops=1)
+                     Hash Cond: (v.vehicle_id = violations.vehicle_id)
+                     Buffers: shared hit=7684, temp read=193 written=357
+                     ->  Seq Scan on vehicles v  (cost=0.00..2529.00 rows=75000 width=18) (actual time=1.409..6.715 rows=75000 loops=1)
+                           Buffers: shared hit=1779
+                     ->  Hash  (cost=14210.50..14210.50 rows=44655 width=48) (actual time=101.331..101.336 rows=46886 loops=1)
+                           Buckets: 65536  Batches: 1  Memory Usage: 2924kB
+                           Buffers: shared hit=5905, temp read=193 written=357
+                           ->  HashAggregate  (cost=12911.97..14210.50 rows=44655 width=48) (actual time=62.834..92.126 rows=46886 loops=1)
+                                 Group Key: violations.vehicle_id
+                                 Planned Partitions: 4  Batches: 5  Memory Usage: 8241kB  Disk Usage: 1728kB
+                                 Buffers: shared hit=5905, temp read=193 written=357
+                                 ->  Bitmap Heap Scan on violations  (cost=983.55..7865.80 rows=75811 width=13) (actual time=2.584..25.793 rows=78134 loops=1)
+                                       Recheck Cond: (status = ANY ('{verified,notified}'::violation_status[]))
+                                       Filter: (vehicle_id IS NOT NULL)
+                                       Heap Blocks: exact=5785
+                                       Buffers: shared hit=5905
+                                       ->  Bitmap Index Scan on ix_vio_status_due  (cost=0.00..964.60 rows=77300 width=0) (actual time=1.980..1.980 rows=78134 loops=1)
+                                             Index Cond: (status = ANY ('{verified,notified}'::violation_status[]))
+                                             Buffers: shared hit=120
+               ->  Hash  (cost=2068.73..2068.73 rows=35221 width=8) (actual time=9.801..9.804 rows=33900 loops=1)
+                     Buckets: 65536  Batches: 1  Memory Usage: 1837kB
+                     Buffers: shared hit=716
+                     ->  Bitmap Heap Scan on insurance_policies p  (cost=421.26..2068.73 rows=35221 width=8) (actual time=0.988..5.849 rows=33900 loops=1)
+                           Recheck Cond: ((end_date >= ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date) AND (status = 'active'::policy_status))
+                           Heap Blocks: exact=682
+                           Buffers: shared hit=716
+                           ->  Bitmap Index Scan on ix_policies_active_end  (cost=0.00..412.45 rows=35221 width=0) (actual time=0.915..0.915 rows=33900 loops=1)
+                                 Index Cond: (end_date >= ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date)
+                                 Buffers: shared hit=34
+ Planning:
+   Buffers: shared hit=465
+ Planning Time: 1.259 ms
+ Execution Time: 167.454 ms
+(43 rows)
+

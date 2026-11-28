@@ -1,11 +1,11 @@
-q01_xe_qua_nien_han	78.156	shared hit=3812
-q02_xe_sap_het_han_dang_kiem	67.452	shared hit=16369
-q03_xe_no_phat	393.898	shared hit=8102 read=2871, temp read=607 written=1429
-q04_chu_xe_vi_pham_nhieu_nhat	560.928	shared hit=8169 read=2807, temp read=1432 written=2580
-q05_vi_pham_theo_camera_thang	367.349	shared hit=6086 read=2743
-q06_no_phat_theo_loai_loi	107.222	shared hit=6139 read=2679
-q07_lich_su_vi_pham_cua_xe	33.481	shared hit=6203 read=2615
-q08_lich_su_so_huu	91.315	shared hit=2165, temp read=358 written=600
-q09_khieu_nai_cho_lau_nhat	115.655	shared hit=7773 read=2551
-q10_no_phat_va_khong_con_dang_kiem	239.378	shared hit=9716 read=2487, temp read=322 written=675
+q01_vi_pham_qua_han_nop_phat	128.186	shared hit=7177
+q02_chu_xe_vi_pham_nhieu_nhat	375.000	shared hit=7384, temp read=1282 written=2052
+q03_tien_phat_chua_nop_theo_loi	49.980	shared hit=5897
+q04_vi_pham_theo_camera_thang	187.060	shared hit=5935, temp read=1882 written=1887
+q05_lich_su_vi_pham_cua_xe	30.713	shared hit=5920
+q06_lich_su_sang_ten	196.529	shared hit=5423, temp read=391 written=392
+q07_ho_so_cho_duyet_lau_nhat	0.367	shared hit=72
+q08_bao_hiem_sap_het_han	3.395	shared hit=1002
+q09_no_phat_khong_co_bao_hiem	167.454	shared hit=8403, temp read=193 written=357
+q10_doanh_thu_boi_thuong_cong_ty_bh	53.802	shared hit=2468
 q11_bao_cao_tinh_trang_xe_view	TIMEOUT>60000	

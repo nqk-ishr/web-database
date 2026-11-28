@@ -1,0 +1,33 @@
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=8407.74..8407.81 rows=30 width=122) (actual time=49.854..49.860 rows=30 loops=1)
+   Sort Key: (sum(x.fine_amount)) DESC
+   Sort Method: quicksort  Memory: 28kB
+   Buffers: shared hit=5897
+   ->  WindowAgg  (cost=8406.03..8407.00 rows=30 width=122) (actual time=49.805..49.822 rows=30 loops=1)
+         Buffers: shared hit=5894
+         ->  HashAggregate  (cost=8406.03..8406.40 rows=30 width=90) (actual time=49.760..49.770 rows=30 loops=1)
+               Group Key: t.violation_type_id
+               Batches: 1  Memory Usage: 32kB
+               Buffers: shared hit=5894
+               ->  Hash Join  (cost=913.44..7891.83 rows=68560 width=55) (actual time=2.756..38.660 rows=69483 loops=1)
+                     Hash Cond: (x.violation_type_id = t.violation_type_id)
+                     Buffers: shared hit=5894
+                     ->  Bitmap Heap Scan on violations x  (cost=911.76..7684.76 rows=68560 width=9) (actual time=2.716..24.915 rows=69483 loops=1)
+                           Recheck Cond: (status = 'notified'::violation_status)
+                           Heap Blocks: exact=5785
+                           Buffers: shared hit=5893
+                           ->  Bitmap Index Scan on ix_vio_status_due  (cost=0.00..894.62 rows=68560 width=0) (actual time=2.108..2.109 rows=69483 loops=1)
+                                 Index Cond: (status = 'notified'::violation_status)
+                                 Buffers: shared hit=108
+                     ->  Hash  (cost=1.30..1.30 rows=30 width=50) (actual time=0.022..0.024 rows=30 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 11kB
+                           Buffers: shared hit=1
+                           ->  Seq Scan on violation_types t  (cost=0.00..1.30 rows=30 width=50) (actual time=0.006..0.009 rows=30 loops=1)
+                                 Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=287
+ Planning Time: 0.718 ms
+ Execution Time: 49.980 ms
+(29 rows)
+

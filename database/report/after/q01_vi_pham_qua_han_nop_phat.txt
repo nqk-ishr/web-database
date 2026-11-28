@@ -1,0 +1,29 @@
+                                                                       QUERY PLAN                                                                       
+--------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=14549.12..14549.24 rows=50 width=82) (actual time=158.369..158.379 rows=50 loops=1)
+   Buffers: shared hit=7177
+   ->  Sort  (cost=14549.12..14688.80 rows=55875 width=82) (actual time=158.366..158.373 rows=50 loops=1)
+         Sort Key: ((((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date - x.due_date)) DESC, x.violation_id
+         Sort Method: top-N heapsort  Memory: 34kB
+         Buffers: shared hit=7177
+         ->  Hash Join  (cost=3696.87..12692.99 rows=55875 width=82) (actual time=37.270..141.914 rows=67211 loops=1)
+               Hash Cond: (x.liable_owner_id = u.user_id)
+               Buffers: shared hit=7171
+               ->  Bitmap Heap Scan on violations x  (cost=881.15..8054.34 rows=55875 width=37) (actual time=2.420..24.510 rows=67211 loops=1)
+                     Recheck Cond: ((status = 'notified'::violation_status) AND (due_date < ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date))
+                     Heap Blocks: exact=5601
+                     Buffers: shared hit=5706
+                     ->  Bitmap Index Scan on ix_vio_status_due  (cost=0.00..867.18 rows=55875 width=0) (actual time=1.838..1.839 rows=67211 loops=1)
+                           Index Cond: ((status = 'notified'::violation_status) AND (due_date < ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh'::text))::date))
+                           Buffers: shared hit=105
+               ->  Hash  (cost=2065.32..2065.32 rows=60032 width=25) (actual time=34.551..34.553 rows=60032 loops=1)
+                     Buckets: 65536  Batches: 1  Memory Usage: 4104kB
+                     Buffers: shared hit=1465
+                     ->  Seq Scan on users u  (cost=0.00..2065.32 rows=60032 width=25) (actual time=0.010..20.685 rows=60032 loops=1)
+                           Buffers: shared hit=1465
+ Planning:
+   Buffers: shared hit=412
+ Planning Time: 1.125 ms
+ Execution Time: 158.477 ms
+(25 rows)
+

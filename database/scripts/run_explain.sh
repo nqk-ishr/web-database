@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# scripts/run_explain.sh <before|after>  -> reports/<nhan>/qNN.txt + summary.tsv
-# Moi truy van chay 1 lan "khoi dong" roi 1 lan do (cache nong cho ca truoc va sau).
+# database/scripts/run_explain.sh <before|after>  -> database/report/<nhan>/qNN.txt + summary.tsv
+# Moi truy van chay 1 lan "khoi dong" roi 1 lan do (cache nong cho ca truoc va sau); huy sau 60 giay.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-tag=${1:?before|after}; out=../reports/$tag; mkdir -p "$out"; : > "$out/summary.tsv"
+tag=${1:?before|after}; out=report/$tag; mkdir -p "$out"; : > "$out/summary.tsv"
 for f in queries/q*.sql; do
   n=$(basename "$f" .sql)
   run() { { echo "SET statement_timeout='60s'; SET max_parallel_workers_per_gather=0; SET jit=off;"; echo "EXPLAIN (ANALYZE, BUFFERS)"; cat "$f"; } | psql -X -q; }

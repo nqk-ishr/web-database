@@ -1,0 +1,78 @@
+                                                                                QUERY PLAN                                                                                 
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Merge Left Join  (cost=5859.32..5859.41 rows=2 width=137) (actual time=51.879..51.897 rows=2 loops=1)
+   Merge Cond: (i.insurer_id = clm.insurer_id)
+   Buffers: shared hit=2468
+   ->  Merge Join  (cost=4153.16..4153.20 rows=2 width=65) (actual time=43.998..44.010 rows=2 loops=1)
+         Merge Cond: (i.insurer_id = prem.insurer_id)
+         Buffers: shared hit=1587
+         ->  Sort  (cost=1.03..1.03 rows=2 width=33) (actual time=0.017..0.020 rows=2 loops=1)
+               Sort Key: i.insurer_id
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=1
+               ->  Seq Scan on insurers i  (cost=0.00..1.02 rows=2 width=33) (actual time=0.006..0.007 rows=2 loops=1)
+                     Buffers: shared hit=1
+         ->  Sort  (cost=4152.13..4152.14 rows=2 width=36) (actual time=43.975..43.982 rows=2 loops=1)
+               Sort Key: prem.insurer_id
+               Sort Method: quicksort  Memory: 25kB
+               Buffers: shared hit=1586
+               ->  Subquery Scan on prem  (cost=4152.08..4152.12 rows=2 width=36) (actual time=43.961..43.968 rows=2 loops=1)
+                     Buffers: shared hit=1586
+                     ->  HashAggregate  (cost=4152.08..4152.10 rows=2 width=36) (actual time=43.960..43.966 rows=2 loops=1)
+                           Group Key: pr.insurer_id
+                           Batches: 1  Memory Usage: 24kB
+                           Buffers: shared hit=1586
+                           ->  Hash Join  (cost=2122.53..3888.86 rows=52643 width=10) (actual time=12.815..38.046 rows=52500 loops=1)
+                                 Hash Cond: (po.product_id = pr.product_id)
+                                 Buffers: shared hit=1586
+                                 ->  Hash Join  (cost=2120.62..3734.14 rows=52643 width=10) (actual time=12.784..29.371 rows=52500 loops=1)
+                                       Hash Cond: (pp.policy_id = po.policy_id)
+                                       Buffers: shared hit=1585
+                                       ->  Seq Scan on policy_payments pp  (cost=0.00..1475.31 rows=52643 width=14) (actual time=0.004..6.290 rows=52500 loops=1)
+                                             Filter: (status = 'success'::txn_status)
+                                             Rows Removed by Filter: 7125
+                                             Buffers: shared hit=730
+                                       ->  Hash  (cost=1417.50..1417.50 rows=56250 width=12) (actual time=12.586..12.587 rows=56250 loops=1)
+                                             Buckets: 65536  Batches: 1  Memory Usage: 2929kB
+                                             Buffers: shared hit=855
+                                             ->  Seq Scan on insurance_policies po  (cost=0.00..1417.50 rows=56250 width=12) (actual time=0.002..6.170 rows=56250 loops=1)
+                                                   Buffers: shared hit=855
+                                 ->  Hash  (cost=1.40..1.40 rows=40 width=8) (actual time=0.018..0.019 rows=40 loops=1)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                       Buffers: shared hit=1
+                                       ->  Seq Scan on insurance_products pr  (cost=0.00..1.40 rows=40 width=8) (actual time=0.004..0.006 rows=40 loops=1)
+                                             Buffers: shared hit=1
+   ->  Sort  (cost=1706.15..1706.16 rows=2 width=44) (actual time=7.872..7.876 rows=2 loops=1)
+         Sort Key: clm.insurer_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=881
+         ->  Subquery Scan on clm  (cost=1706.10..1706.14 rows=2 width=44) (actual time=7.846..7.851 rows=2 loops=1)
+               Buffers: shared hit=881
+               ->  HashAggregate  (cost=1706.10..1706.12 rows=2 width=44) (actual time=7.845..7.849 rows=2 loops=1)
+                     Group Key: pr_1.insurer_id
+                     Batches: 1  Memory Usage: 24kB
+                     Buffers: shared hit=881
+                     ->  Hash Join  (cost=52.05..1694.92 rows=1118 width=13) (actual time=0.316..7.670 rows=1118 loops=1)
+                           Hash Cond: (po_1.product_id = pr_1.product_id)
+                           Buffers: shared hit=881
+                           ->  Hash Join  (cost=50.16..1689.77 rows=1118 width=13) (actual time=0.276..7.498 rows=1118 loops=1)
+                                 Hash Cond: (po_1.policy_id = c.policy_id)
+                                 Buffers: shared hit=880
+                                 ->  Seq Scan on insurance_policies po_1  (cost=0.00..1417.50 rows=56250 width=12) (actual time=0.003..3.090 rows=56250 loops=1)
+                                       Buffers: shared hit=855
+                                 ->  Hash  (cost=36.18..36.18 rows=1118 width=17) (actual time=0.239..0.240 rows=1118 loops=1)
+                                       Buckets: 2048  Batches: 1  Memory Usage: 77kB
+                                       Buffers: shared hit=25
+                                       ->  Seq Scan on insurance_claims c  (cost=0.00..36.18 rows=1118 width=17) (actual time=0.003..0.124 rows=1118 loops=1)
+                                             Buffers: shared hit=25
+                           ->  Hash  (cost=1.40..1.40 rows=40 width=8) (actual time=0.019..0.020 rows=40 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                 Buffers: shared hit=1
+                                 ->  Seq Scan on insurance_products pr_1  (cost=0.00..1.40 rows=40 width=8) (actual time=0.008..0.012 rows=40 loops=1)
+                                       Buffers: shared hit=1
+ Planning:
+   Buffers: shared hit=611
+ Planning Time: 1.485 ms
+ Execution Time: 52.076 ms
+(74 rows)
+

@@ -1,0 +1,22 @@
+                                                                           QUERY PLAN                                                                            
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=1.00..205.54 rows=20 width=51) (actual time=0.048..0.224 rows=20 loops=1)
+   Buffers: shared hit=72
+   ->  Nested Loop Left Join  (cost=1.00..11128.19 rows=1088 width=51) (actual time=0.047..0.220 rows=20 loops=1)
+         Buffers: shared hit=72
+         ->  Nested Loop  (cost=0.58..5648.03 rows=1088 width=45) (actual time=0.039..0.203 rows=20 loops=1)
+               Buffers: shared hit=72
+               ->  Index Scan using ix_req_status on registration_requests r  (cost=0.29..1473.47 rows=1088 width=36) (actual time=0.022..0.042 rows=20 loops=1)
+                     Index Cond: (status = 'pending_approval'::request_status)
+                     Buffers: shared hit=12
+               ->  Index Scan using users_pkey on users u  (cost=0.29..3.84 rows=1 width=25) (actual time=0.007..0.007 rows=1 loops=20)
+                     Index Cond: (user_id = r.requester_id)
+                     Buffers: shared hit=60
+         ->  Index Scan using vehicles_pkey on vehicles v  (cost=0.42..5.03 rows=1 width=18) (actual time=0.000..0.000 rows=0 loops=20)
+               Index Cond: (vehicle_id = r.vehicle_id)
+ Planning:
+   Buffers: shared hit=494
+ Planning Time: 1.589 ms
+ Execution Time: 0.298 ms
+(18 rows)
+
