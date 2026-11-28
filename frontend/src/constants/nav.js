@@ -24,5 +24,6 @@ export const NAV = {
   [R.ADMIN]: [
     { to: "/admin/users", label: "Tài khoản" },
     { to: "/admin/audit", label: "Nhật ký" },
+    { to: "/admin/reports", label: "Báo cáo" },
   ],
 };

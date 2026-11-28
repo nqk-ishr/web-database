@@ -50,7 +50,7 @@ export default function AttachmentPanel({ kind, parentId, canEdit }) {
           </label>
         )}
       </div>
-      <p className="muted">PDF, JPG hoặc PNG, tối đa {MAX_BYTES / 1024 / 1024} MB mỗi tệp, tối đa {MAX_FILES} tệp.</p>
+      {canEdit && <p className="muted">PDF, JPG hoặc PNG, tối đa {MAX_BYTES / 1024 / 1024} MB mỗi tệp, tối đa {MAX_FILES} tệp.</p>}
       {list.isLoading ? <Loading /> : list.error ? <ErrorBox error={list.error} onRetry={list.refetch} /> : files.length === 0
         ? <p className="muted">Chưa có tệp nào.</p> : (
           <ul className="files">

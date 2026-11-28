@@ -5,7 +5,6 @@ import { ROLES } from "../constants/roles";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/RegisterPage";
 import ChangePasswordPage from "../pages/account/ChangePasswordPage";
-import ComingSoonPage from "../pages/ComingSoonPage";
 import HomePage from "../pages/owner/HomePage";
 import VehicleDetailPage from "../pages/owner/VehicleDetailPage";
 import MyViolationsPage from "../pages/owner/MyViolationsPage";
@@ -21,13 +20,39 @@ import MyClaimsPage from "../pages/owner/MyClaimsPage";
 import NewClaimPage from "../pages/owner/NewClaimPage";
 import ClaimDetailPage from "../pages/owner/ClaimDetailPage";
 import UiKitPage from "../pages/dev/UiKitPage";
+import RequestQueuePage from "../pages/registrar/RequestQueuePage";
+import RequestReviewPage from "../pages/registrar/RequestReviewPage";
+import VehicleSearchPage from "../pages/registrar/VehicleSearchPage";
+import VehicleRecordPage from "../pages/registrar/VehicleRecordPage";
+import ViolationQueuePage from "../pages/enforcement/ViolationQueuePage";
+import ViolationReviewPage from "../pages/enforcement/ViolationReviewPage";
+import ViolationReportPage from "../pages/reports/ViolationReportPage";
+import ClaimQueuePage from "../pages/insurer/ClaimQueuePage";
+import ClaimReviewPage from "../pages/insurer/ClaimReviewPage";
+import InsuranceReportPage from "../pages/reports/InsuranceReportPage";
+import UsersPage from "../pages/admin/UsersPage";
+import UserDetailPage from "../pages/admin/UserDetailPage";
+import AuditLogPage from "../pages/admin/AuditLogPage";
+import AdminReportsPage from "../pages/admin/AdminReportsPage";
 
-// Cổng của từng vai trò cán bộ. Mỗi phần sau thay ComingSoonPage bằng các trang thật.
+// Cổng phía quản lý: mỗi vai trò một tiền tố đường dẫn; đường dẫn lạ trong cổng quay về trang đầu của cổng.
 const STAFF_PORTALS = [
-  { role: ROLES.REGISTRAR, base: "/registrar" },
-  { role: ROLES.VIOLATION_OFFICER, base: "/enforcement" },
-  { role: ROLES.INSURANCE_STAFF, base: "/insurer" },
-  { role: ROLES.ADMIN, base: "/admin" },
+  { role: ROLES.REGISTRAR, base: "/registrar", pages: [
+    ["requests", <RequestQueuePage />], ["requests/:id", <RequestReviewPage />],
+    ["vehicles", <VehicleSearchPage />], ["vehicles/:id", <VehicleRecordPage />],
+  ] },
+  { role: ROLES.VIOLATION_OFFICER, base: "/enforcement", pages: [
+    ["violations", <ViolationQueuePage />], ["violations/:id", <ViolationReviewPage />],
+    ["reports", <ViolationReportPage />],
+  ] },
+  { role: ROLES.INSURANCE_STAFF, base: "/insurer", pages: [
+    ["claims", <ClaimQueuePage />], ["claims/:id", <ClaimReviewPage />],
+    ["reports", <InsuranceReportPage />],
+  ] },
+  { role: ROLES.ADMIN, base: "/admin", pages: [
+    ["users", <UsersPage />], ["users/:id", <UserDetailPage />],
+    ["audit", <AuditLogPage />], ["reports", <AdminReportsPage />],
+  ] },
 ];
 
 export default function AppRoutes() {
@@ -65,9 +90,13 @@ export default function AppRoutes() {
       </Route>
 
       {/* Cán bộ / quản trị */}
-      {STAFF_PORTALS.map(({ role, base }) => (
+      {STAFF_PORTALS.map(({ role, base, pages }) => (
         <Route key={role} element={<ProtectedRoute roles={[role]} />}>
-          <Route element={<AppLayout />}><Route path={`${base}/*`} element={<ComingSoonPage />} /></Route>
+          <Route path={base} element={<AppLayout />}>
+            {pages.map(([path, el]) => <Route key={path} path={path} element={el} />)}
+            <Route index element={<Navigate to={`${base}/${pages[0][0]}`} replace />} />
+            <Route path="*" element={<Navigate to={`${base}/${pages[0][0]}`} replace />} />
+          </Route>
         </Route>
       ))}
 
