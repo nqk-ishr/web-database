@@ -1,0 +1,12 @@
+# VM1 (192.168.64.130): frontend + nginx làm reverse proxy sang backend
+services:
+  frontend:
+    build:
+      context: ../../frontend
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

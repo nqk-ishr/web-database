@@ -1,0 +1,13 @@
+# VM2 (192.168.64.132): backend FastAPI
+services:
+  backend:
+    build: ../../backend
+    env_file: .env
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads:/var/app/uploads
+
+volumes:
+  uploads:
