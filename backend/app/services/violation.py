@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.core.config import LATE_FEE_RATE, TODAY, TZ
 from app.db.session import found, q1, tx
+from app.services.audit import log_audit
 from app.services.common import gateway_ref
 
 
@@ -45,6 +46,7 @@ def verify_violation(vid, u):
             warnings.append("Xe có hợp đồng bảo hiểm hiệu lực tại thời điểm vi phạm")
         cur.execute("""UPDATE violations SET status = 'verified', handled_by = %s, verified_at = now()
                        WHERE violation_id = %s""", (u["user_id"], vid))
+        log_audit(cur, u["user_id"], "violation.verify", "violation", vid, {"warnings": warnings})
     return {"violation_id": vid, "status": "verified", "warnings": warnings}
 
 
@@ -60,6 +62,8 @@ def notify_violation(vid, b, u):
         cur.execute("""UPDATE violations SET status = 'notified', fine_amount = %s, due_date = %s,
                               decision_number = %s, handled_by = %s, notified_at = now()
                        WHERE violation_id = %s""", (b.fine_amount, b.due_date, number, u["user_id"], vid))
+        log_audit(cur, u["user_id"], "violation.notify", "violation", vid,
+                  {"fine_amount": b.fine_amount, "decision_number": number})
     return {"violation_id": vid, "status": "notified", "decision_number": number}
 
 
@@ -70,6 +74,7 @@ def cancel_violation(vid, b, u):
             raise HTTPException(409, f"Vi phạm đang ở trạng thái {v['status']}, không hủy được")
         cur.execute("""UPDATE violations SET status = 'cancelled', cancelled_reason = %s, handled_by = %s
                        WHERE violation_id = %s""", (b.reason, u["user_id"], vid))
+        log_audit(cur, u["user_id"], "violation.cancel", "violation", vid, {"reason": b.reason})
     return {"violation_id": vid, "status": "cancelled"}
 
 

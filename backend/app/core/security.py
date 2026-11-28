@@ -1,19 +1,51 @@
 """Xác thực và phân quyền.
 
-Đọc `Authorization: Bearer <jwt>` (HS256, claim `sub` = user_id). Việc đăng nhập và băm mật khẩu
-do phần xác thực của nhóm làm; file này chỉ kiểm token và vai trò.
+* Băm mật khẩu bằng bcrypt (hash_password / verify_password).
+* Phát hành JWT (create_token): HS256, claim `sub` = user_id.
+* Đọc `Authorization: Bearer <jwt>` và kiểm vai trò (current_user / need).
 """
+import datetime as dt
+
+import bcrypt
 import jwt
 from fastapi import Depends, Header, HTTPException
 
-from app.core.config import JWT_SECRET
+from app.core.config import JWT_EXPIRE_MINUTES, JWT_SECRET
 from app.db.session import q1, tx
+
+ALGORITHM = "HS256"
+
+
+def _pw(password: str) -> bytes:
+    # bcrypt chỉ dùng tối đa 72 byte đầu; cắt thống nhất ở cả băm và kiểm tra
+    return password.encode("utf-8")[:72]
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(_pw(password), bcrypt.gensalt(rounds=12)).decode("ascii")
+
+
+def verify_password(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(_pw(password), password_hash.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):      # băm không đúng định dạng (vd. dữ liệu mẫu cũ)
+        return False
+
+
+# Băm giả để thời gian phản hồi như nhau khi tên đăng nhập không tồn tại
+DUMMY_HASH = hash_password("dummy-password-for-timing")
+
+
+def create_token(user_id: int) -> str:
+    now = dt.datetime.now(dt.timezone.utc)
+    payload = {"sub": str(user_id), "iat": now, "exp": now + dt.timedelta(minutes=JWT_EXPIRE_MINUTES)}
+    return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 
 
 def current_user(authorization: str = Header(default="")):
     token = authorization.removeprefix("Bearer ").strip()
     try:
-        uid = int(jwt.decode(token, JWT_SECRET, algorithms=["HS256"])["sub"])
+        uid = int(jwt.decode(token, JWT_SECRET, algorithms=[ALGORITHM])["sub"])
     except Exception:
         raise HTTPException(401, "Token không hợp lệ")
     with tx() as cur:

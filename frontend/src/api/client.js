@@ -9,7 +9,13 @@ api.interceptors.request.use((cfg) => {
   return cfg;
 });
 api.interceptors.response.use((r) => r, (err) => {
-  if (err.response?.status === 401) { localStorage.removeItem("token"); window.location.assign("/login"); }
+  // 401 = token hết hạn / tài khoản bị khóa. Riêng đăng nhập sai backend trả 400 nên không đi vào đây.
+  const isLogin = err.config?.url?.includes("/auth/login");
+  if (err.response?.status === 401 && !isLogin) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");          // xóa cả user, nếu không giao diện tưởng vẫn đang đăng nhập
+    if (window.location.pathname !== "/login") window.location.assign("/login");
+  }
   return Promise.reject(err);
 });
 

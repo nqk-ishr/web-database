@@ -1,360 +1,439 @@
 // ============================================================
-// HỆ THỐNG WEB QUẢN LÝ PHƯƠNG TIỆN GIAO THÔNG VÀ BẢO HIỂM - PostgreSQL
+// HỆ THỐNG WEB QUẢN LÝ PHƯƠNG TIỆN GIAO THÔNG - PostgreSQL
 // Nghiệp vụ: Đăng ký, Sang tên | Phạt nguội | Bảo hiểm TNDS bắt buộc
-// Dán nguyên file này vào https://dbdiagram.io
+// Viết theo đúng database/schema.sql (16 bảng) + 2 bảng từ migration Alembic
+// (0002 audit_log, 0003 attachments). Dán nguyên file này vào https://dbdiagram.io
+//
+// DBML không biểu diễn được trigger, EXCLUDE, partial index và CHECK nhiều cột:
+// các ràng buộc đó ghi trong note của cột/bảng/chỉ mục.
 // ============================================================
 
-Project vehicle_management_insurance {
+Project vehicle_management {
   database_type: 'PostgreSQL'
-  Note: 'CSDL Hệ thống Quản lý Phương tiện & Bảo hiểm xe cơ giới - 16 bảng, chuẩn hóa 3NF'
+  Note: 'CSDL hệ thống quản lý phương tiện giao thông và bảo hiểm TNDS - 16 bảng (schema.sql) + 2 bảng migration, chuẩn hóa 3NF'
 }
 
 // ------------------------------------------------------------
-// ENUM (Trạng thái & Luồng xử lý nghiệp vụ)
+// ENUM
 // ------------------------------------------------------------
 
 Enum vehicle_status {
-  Normal   [note: 'Bình thường']
-  Stolen   [note: 'Báo mất (do duyệt bồi thường mất cắp)']
-  Revoked  [note: 'Đã thu hồi (bởi cán bộ đăng ký)']
+  normal  [note: 'Bình thường']
+  stolen  [note: 'Báo mất']
+  revoked [note: 'Đã thu hồi (cuối)']
 }
 
-Enum registration_request_type {
-  NewRegistration [note: 'Đăng ký mới']
-  Transfer        [note: 'Sang tên']
+Enum request_type {
+  new_registration [note: 'Đăng ký mới']
+  transfer         [note: 'Sang tên']
 }
 
-Enum registration_request_status {
-  PendingConfirmation    [note: 'Chờ bên mua xác nhận (đối với sang tên)']
-  Pending                [note: 'Chờ cán bộ duyệt']
-  Approved               [note: 'Đã duyệt']
-  Rejected               [note: 'Từ chối']
-  AdditionalInfoRequired [note: 'Cần bổ sung']
-  Cancelled              [note: 'Đã hủy (do rút hồ sơ, bên mua từ chối, hoặc xe báo mất)']
-}
-
-Enum camera_status {
-  Active
-  Maintenance
-  Inactive
+Enum request_status {
+  pending_confirmation [note: 'Chờ xác nhận (bên mua) - chỉ sang tên']
+  pending_approval     [note: 'Chờ duyệt']
+  needs_more_info      [note: 'Cần bổ sung']
+  approved             [note: 'Đã duyệt (cuối)']
+  rejected             [note: 'Từ chối (cuối)']
+  cancelled            [note: 'Đã hủy (cuối)']
 }
 
 Enum violation_status {
-  Recorded  [note: 'Mới ghi nhận từ Camera']
-  Verified  [note: 'Đã xác minh bởi cán bộ']
-  Notified  [note: 'Đã thông báo ra quyết định']
-  Paid      [note: 'Đã nộp phạt (trạng thái cuối)']
-  Cancelled [note: 'Đã hủy (trạng thái cuối)']
+  recorded  [note: 'Mới ghi nhận']
+  verified  [note: 'Đã xác minh']
+  notified  [note: 'Đã thông báo']
+  paid      [note: 'Đã nộp phạt (cuối)']
+  cancelled [note: 'Đã hủy (cuối). Quá hạn không lưu: suy ra từ due_date']
 }
 
-Enum payment_status {
-  Pending
-  Success
-  Failed
+Enum txn_status {
+  success [note: 'Thành công']
+  failed  [note: 'Thất bại']
 }
 
 Enum policy_status {
-  PendingPayment [note: 'Chờ thanh toán phí']
-  Active         [note: 'Có hiệu lực']
-  Cancelled      [note: 'Đã hủy']
+  pending_payment [note: 'Chờ thanh toán']
+  active          [note: 'Hiệu lực. Hết hạn không lưu: suy ra từ end_date']
+  cancelled       [note: 'Đã hủy (cuối)']
 }
 
 Enum claim_type {
-  Accident [note: 'Bồi thường tai nạn']
-  Theft    [note: 'Bồi thường mất cắp toàn bộ xe']
+  accident [note: 'Tai nạn']
+  theft    [note: 'Mất cắp']
 }
 
 Enum claim_status {
-  Pending                [note: 'Chờ thẩm định']
-  Approved               [note: 'Đã duyệt']
-  Rejected               [note: 'Từ chối']
-  AdditionalInfoRequired [note: 'Cần bổ sung']
-  Paid                   [note: 'Đã chi trả (trạng thái cuối)']
-  Cancelled              [note: 'Đã hủy (trạng thái cuối)']
+  pending_review  [note: 'Chờ thẩm định']
+  needs_more_info [note: 'Cần bổ sung']
+  approved        [note: 'Đã duyệt']
+  rejected        [note: 'Từ chối (cuối)']
+  paid            [note: 'Đã chi trả (cuối)']
+  cancelled       [note: 'Đã hủy (cuối)']
+}
+
+Enum vehicle_event {
+  registered            [note: 'Đăng ký mới: NULL -> normal']
+  ownership_transferred [note: 'Sang tên: normal -> normal']
+  reported_stolen       [note: 'Báo mất: normal -> stolen']
+  found                 [note: 'Tìm thấy: stolen -> normal']
+  revoked               [note: 'Thu hồi: stolen -> revoked']
 }
 
 // ============================================================
-// NHÓM 1: NGƯỜI DÙNG VÀ DANH MỤC CẤU HÌNH
+// NHÓM 1: NGƯỜI DÙNG VÀ DANH MỤC
 // ============================================================
 
 Table roles {
-  role_id   int [pk, increment]
-  role_name varchar(50) [not null, unique, note: 'VehicleOwner, RegistrationOfficer, ViolationOfficer, InsuranceStaff, SystemAdmin']
+  role_id smallint [pk, increment]
+  code    varchar(30)  [not null, unique, note: 'owner, registrar, violation_officer, insurance_staff, admin']
+  name    varchar(100) [not null]
 
-  Note: 'Danh mục vai trò người dùng hệ thống'
+  Note: 'Vai trò: owner, registrar, violation_officer, insurance_staff, admin'
 }
 
 Table insurers {
   insurer_id int [pk, increment]
-  name       varchar(150) [not null, unique, note: 'Tên công ty bảo hiểm']
-  tax_code   varchar(20) [not null, unique, note: 'Mã số thuế']
-  address    text
-  phone      varchar(20)
-  email      varchar(100)
-  created_at timestamp [not null, default: `now()`]
+  code       varchar(30)  [not null, unique]
+  name       varchar(150) [not null, unique]
+  hotline    varchar(20)
+  is_active  boolean      [not null, default: true]
 
-  Note: 'Danh mục các Công ty bảo hiểm tham gia hệ thống'
+  Note: 'Công ty bảo hiểm (danh mục)'
 }
 
 Table users {
-  user_id       int [pk, increment]
-  role_id       int [not null, ref: > roles.role_id]
-  insurer_id    int [ref: > insurers.insurer_id, note: 'Bắt buộc với role InsuranceStaff (CHECK trong SQL)']
-  full_name     varchar(100) [not null]
-  identity_card varchar(20) [not null, unique, note: 'CCCD/CMND']
-  email         varchar(100) [unique]
-  phone         varchar(20) [unique]
-  address       text
-  password_hash varchar(255) [not null, note: 'Mật khẩu mã hóa']
-  is_active     boolean [not null, default: true]
-  created_at    timestamp [not null, default: `now()`]
+  user_id       bigint [pk, increment]
+  role_id       smallint     [not null, ref: > roles.role_id]
+  insurer_id    int          [ref: > insurers.insurer_id, note: 'Chỉ nhân viên bảo hiểm có giá trị; NULL với vai trò khác (trigger trg_users_check_insurer)']
+  username      varchar(50)  [not null, unique]
+  password_hash varchar(255) [not null]
+  full_name     varchar(150) [not null]
+  citizen_id    varchar(20)  [unique, note: 'CHECK ck_users_citizen_format: 9-12 chữ số']
+  phone         varchar(20)
+  email         varchar(150) [unique]
+  is_active     boolean      [not null, default: true]
+  created_at    timestamptz  [not null, default: `now()`]
 
-  Note: 'Tài khoản người dùng dùng chung (gộp Chủ xe, Cán bộ và Nhân viên bảo hiểm)'
+  indexes {
+    role_id    [name: 'ix_users_role']
+    insurer_id [name: 'ix_users_insurer', note: 'WHERE insurer_id IS NOT NULL']
+  }
+
+  Note: 'Chủ xe, cán bộ, nhân viên bảo hiểm, quản trị dùng chung; phân biệt bằng role_id'
 }
 
 Table vehicle_types {
-  type_id     int [pk, increment]
-  type_name   varchar(50) [not null, unique, note: 'Ô tô con, Mô tô 2 bánh, Xe tải...']
-  description text
+  vehicle_type_id smallint [pk, increment]
+  name            varchar(100) [not null]
+  usage_purpose   varchar(50)  [not null, note: 'Công năng']
 
-  Note: 'Danh mục loại xe áp dụng cho đăng ký và tính phí bảo hiểm'
+  indexes {
+    (name, usage_purpose) [unique, name: 'uq_vehicle_types']
+  }
+
+  Note: 'Loại xe và công năng (danh mục)'
 }
 
 Table violation_types {
   violation_type_id int [pk, increment]
-  violation_code    varchar(20) [not null, unique]
-  violation_name    varchar(150) [not null]
-  min_penalty       decimal(12,2) [not null, note: 'CHECK min_penalty >= 0']
-  max_penalty       decimal(12,2) [not null, note: 'CHECK max_penalty >= min_penalty']
-  description       text
+  code        varchar(40)   [not null, unique]
+  description varchar(300)  [not null]
+  min_fine    numeric(12,0) [not null]
+  max_fine    numeric(12,0) [not null]
+  is_active   boolean       [not null, default: true]
 
-  Note: 'Danh mục lỗi và khung mức phạt (có lỗi Không có bảo hiểm bắt buộc)'
+  Note: 'Danh mục lỗi và khung mức phạt. CHECK ck_violation_types_fine: min_fine >= 0 AND max_fine >= min_fine'
 }
 
 Table cameras {
-  camera_id         int [pk, increment]
-  camera_code       varchar(30) [not null, unique]
-  location          text [not null, note: 'Vị trí địa lý camera']
-  installation_date date
-  status            camera_status [not null, default: 'Active']
+  camera_id     int [pk, increment]
+  code          varchar(30)  [not null, unique]
+  location_name varchar(200) [not null]
 
-  Note: 'Camera phạt nguội (Tách bảng khỏi Violations để đạt chuẩn 3NF)'
+  Note: 'Camera phạt nguội: mã và địa điểm lắp đặt'
 }
 
 // ============================================================
-// NHÓM 2: PHƯƠNG TIỆN VÀ LỊCH SỬ SỞ HỮU
+// NHÓM 2: PHƯƠNG TIỆN VÀ CHỦ SỞ HỮU
 // ============================================================
 
 Table vehicles {
-  vehicle_id       int [pk, increment]
-  license_plate    varchar(15) [unique, note: 'Biển số (NULL khi chưa duyệt hồ sơ đăng ký mới)']
-  frame_number     varchar(50) [not null, unique, note: 'Số khung']
-  engine_number    varchar(50) [not null, unique, note: 'Số máy']
-  model_name       varchar(100) [not null, note: 'Tên dòng xe / mẫu xe']
-  manufacture_year int [not null, note: 'Năm sản xuất. CHECK trong khoảng 1900..Năm hiện tại']
-  type_id          int [not null, ref: > vehicle_types.type_id]
-  status           vehicle_status [not null, default: 'Normal', note: 'Bình thường | Báo mất | Đã thu hồi']
-  created_at       timestamp [not null, default: `now()`]
+  vehicle_id       bigint [pk, increment]
+  plate_number     varchar(15) [not null, unique, note: 'CHECK ck_vehicles_plate: viết hoa, không khoảng trắng đầu/cuối, khác rỗng']
+  chassis_number   varchar(30) [not null, unique, note: 'Số khung']
+  engine_number    varchar(30) [not null, unique, note: 'Số máy']
+  manufacture_year smallint    [not null, note: 'CHECK ck_vehicles_year: 1950..2100']
+  vehicle_type_id  smallint    [not null, ref: > vehicle_types.vehicle_type_id]
+  status           vehicle_status [not null, default: 'normal', note: 'Trigger: normal -> stolen; stolen -> normal | revoked']
+  created_at       timestamptz [not null, default: `now()`]
 
   indexes {
-    license_plate
-    (type_id, status)
+    vehicle_type_id [name: 'ix_vehicles_type']
   }
 
-  Note: 'Bảng phương tiện giao thông chính'
+  Note: 'Phương tiện; status theo vòng đời normal -> stolen -> normal/revoked'
 }
 
 Table ownership_history {
-  ownership_id int [pk, increment]
-  vehicle_id   int [not null, ref: > vehicles.vehicle_id]
-  owner_id     int [not null, ref: > users.user_id, note: 'FK tới bảng users (role VehicleOwner)']
-  valid_during daterange [not null, note: 'Khoảng thời gian sở hữu [từ ngày, đến ngày)']
-  created_at   timestamp [not null, default: `now()`]
+  ownership_id bigint [pk, increment]
+  vehicle_id   bigint      [not null, ref: > vehicles.vehicle_id]
+  owner_id     bigint      [not null, ref: > users.user_id]
+  valid_from   timestamptz [not null]
+  valid_to     timestamptz [note: 'NULL = chủ hiện hành. CHECK ck_ownership_range: valid_to > valid_from']
 
   indexes {
-    (vehicle_id, valid_during) [type: gist]
+    vehicle_id          [unique, name: 'uq_ownership_one_current', note: 'WHERE valid_to IS NULL - một xe chỉ có một chủ hiện hành']
+    (owner_id, valid_to) [name: 'ix_ownership_owner']
   }
 
-  Note: '''
-  Lịch sử chủ sở hữu phương tiện.
-  - EXCLUDE USING gist (vehicle_id WITH =, valid_during WITH &&) -> Không cho phép chồng lấn thời gian sở hữu
-  - UNIQUE partial: (vehicle_id) WHERE upper_inf(valid_during) -> Duy nhất 1 chủ sở hữu hiện hành
-  '''
+  Note: '''Lịch sử sở hữu theo khoảng [valid_from, valid_to).
+EXCLUDE ex_ownership_no_overlap USING gist (vehicle_id WITH =, tstzrange(valid_from, valid_to) WITH &&): các khoảng sở hữu của một xe không chồng lấn.'''
 }
 
 Table registration_requests {
-  request_id       int [pk, increment]
-  request_type     registration_request_type [not null, note: 'NewRegistration | Transfer']
-  seller_id        int [ref: > users.user_id, note: 'Chủ hiện tại / Bên bán (NULL nếu Đăng ký mới)']
-  buyer_id         int [not null, ref: > users.user_id, note: 'Chủ mới / Bên mua']
-  vehicle_id       int [ref: > vehicles.vehicle_id, note: 'Xe cần sang tên (NULL nếu Đăng ký mới chưa tạo xe)']
-  
-  // Thông tin kê khai cho đăng ký mới
-  frame_number     varchar(50)
-  engine_number    varchar(50)
-  model_name       varchar(100)
-  manufacture_year int
-  type_id          int [ref: > vehicle_types.type_id]
-
-  status           registration_request_status [not null, default: 'PendingConfirmation']
-  rejection_reason text
-  approved_by      int [ref: > users.user_id, note: 'Cán bộ đăng ký duyệt']
-  created_at       timestamp [not null, default: `now()`]
-  updated_at       timestamp [not null, default: `now()`]
+  request_id                bigint [pk, increment]
+  request_type              request_type   [not null]
+  status                    request_status [not null]
+  vehicle_id                bigint   [ref: > vehicles.vehicle_id, note: 'Sang tên: bắt buộc; đăng ký mới: gán khi duyệt']
+  requester_id              bigint   [not null, ref: > users.user_id, note: 'Chủ xe gửi (bên bán nếu sang tên)']
+  buyer_id                  bigint   [ref: > users.user_id, note: 'Chỉ sang tên; khác requester_id']
+  declared_vehicle_type_id  smallint [ref: > vehicle_types.vehicle_type_id, note: 'Chỉ đăng ký mới']
+  declared_chassis_number   varchar(30)
+  declared_engine_number    varchar(30)
+  declared_manufacture_year smallint
+  reviewer_id               bigint   [ref: > users.user_id]
+  review_note               varchar(500)
+  cancel_reason             varchar(500)
+  submitted_at              timestamptz [not null, default: `now()`]
+  updated_at                timestamptz [not null, default: `now()`, note: 'Trigger trg_requests_touch']
 
   indexes {
-    (vehicle_id, status)
-    buyer_id
+    vehicle_id               [unique, name: 'uq_req_one_open_per_vehicle', note: 'WHERE vehicle_id IS NOT NULL AND status IN (pending_confirmation, pending_approval, needs_more_info)']
+    declared_chassis_number  [unique, name: 'uq_req_open_new_chassis', note: 'WHERE request_type = new_registration AND status IN (pending_approval, needs_more_info)']
+    declared_engine_number   [unique, name: 'uq_req_open_new_engine', note: 'WHERE request_type = new_registration AND status IN (pending_approval, needs_more_info)']
+    (status, submitted_at)   [name: 'ix_req_status']
+    requester_id             [name: 'ix_req_requester']
+    buyer_id                 [name: 'ix_req_buyer', note: 'WHERE buyer_id IS NOT NULL']
   }
 
-  Note: '''
-  Hồ sơ đăng ký mới & sang tên.
-  - UNIQUE partial: (vehicle_id) WHERE status IN ('PendingConfirmation', 'Pending', 'AdditionalInfoRequired') -> Tối đa 1 hồ sơ đang mở
-  '''
-}
-
-Table vehicle_status_history {
-  history_id int [pk, increment]
-  vehicle_id int [not null, ref: > vehicles.vehicle_id]
-  old_status vehicle_status [not null]
-  new_status vehicle_status [not null]
-  reason     text [not null, note: 'Lý do thay đổi (báo mất do bảo hiểm, thu hồi, tìm thấy...)']
-  changed_by int [not null, ref: > users.user_id, note: 'Người thực hiện thao tác']
-  changed_at timestamp [not null, default: `now()`]
-
-  Note: 'Nhật ký theo dõi biến động trạng thái xe (Bình thường <-> Báo mất -> Thu hồi)'
+  Note: '''Hồ sơ đăng ký mới và sang tên.
+CHECK: ck_req_new_fields, ck_req_transfer_fields (trường kê khai theo loại hồ sơ), ck_req_confirm_only_transfer,
+ck_req_approved_new_has_vehicle, ck_req_reviewer, ck_req_note, ck_req_cancel_reason.
+Trigger: chuyển trạng thái hợp lệ; sang tên chỉ do chủ hiện hành gửi, xe Bình thường, không còn nợ phạt (kiểm tra lúc gửi và lúc duyệt).'''
 }
 
 // ============================================================
-// NHÓM 3: VI PHẠM PHẠT NGUỘI VÀ NỘP PHẠT
+// NHÓM 3: VI PHẠM VÀ NỘP PHẠT
 // ============================================================
 
 Table violations {
-  violation_id      int [pk, increment]
-  vehicle_id        int [ref: > vehicles.vehicle_id, note: 'NULL nếu biển số camera ghi không có trong hệ thống']
-  license_plate     varchar(15) [not null, note: 'Biển số do camera nhận diện']
-  violator_id       int [ref: > users.user_id, note: 'Chủ xe chịu phạt tại thời điểm vi phạm (tra cứu từ OwnershipHistory)']
-  camera_id         int [ref: > cameras.camera_id]
-  violation_type_id int [not null, ref: > violation_types.violation_type_id]
-  violation_time    timestamp [not null, note: 'Thời điểm xảy ra vi phạm']
-  fine_amount       decimal(12,2) [note: 'Số tiền phạt cố định khi lập biên bản. CHECK trong khung min_penalty..max_penalty']
-  decision_number   varchar(50) [unique, note: 'Số quyết định xử phạt']
-  due_date          date [note: 'Hạn nộp phạt (Quá hạn suy ra từ CURRENT_DATE > due_date)']
-  status            violation_status [not null, default: 'Recorded']
-  verified_by       int [ref: > users.user_id, note: 'Cán bộ xử lý vi phạm xác minh']
-  created_at        timestamp [not null, default: `now()`]
+  violation_id          bigint [pk, increment]
+  vehicle_id            bigint [ref: > vehicles.vehicle_id, note: 'NULL nếu biển số không khớp xe nào']
+  plate_number_captured varchar(15) [not null, note: 'Biển số camera đọc được']
+  liable_owner_id       bigint [ref: > users.user_id, note: 'Chủ xe TẠI THỜI ĐIỂM vi phạm (trigger kiểm tra bằng fn_owner_at)']
+  violation_type_id     int    [not null, ref: > violation_types.violation_type_id]
+  camera_id             int    [not null, ref: > cameras.camera_id]
+  occurred_at           timestamptz [not null]
+  status                violation_status [not null, default: 'recorded']
+  fine_amount           numeric(12,0) [note: 'Chốt khi lập quyết định; trigger kiểm tra nằm trong khung min_fine..max_fine']
+  decision_number       varchar(40) [unique]
+  due_date              date
+  handled_by            bigint [ref: > users.user_id, note: 'Cán bộ xử lý vi phạm']
+  verified_at           timestamptz
+  notified_at           timestamptz
+  cancelled_reason      varchar(500)
+  created_at            timestamptz [not null, default: `now()`]
+  updated_at            timestamptz [not null, default: `now()`, note: 'Trigger trg_violations_touch']
 
   indexes {
-    (vehicle_id, status)
-    violation_time
-    violator_id
+    (liable_owner_id, status) [name: 'ix_vio_liable']
+    violation_type_id         [name: 'ix_vio_type']
+    camera_id                 [name: 'ix_vio_camera']
+    (status, due_date)        [name: 'ix_vio_status_due']
   }
 
-  Note: 'Bảng vi phạm phạt nguội (quy mô dữ liệu 100.000+ bản ghi để đo hiệu năng)'
+  Note: '''Vi phạm phạt nguội. Trigger: recorded -> verified | cancelled; verified -> notified | cancelled; notified -> paid (cần payment success).
+CHECK: ck_vio_fine_nonneg, ck_vio_owner_needs_vehicle, ck_vio_vehicle_required, ck_vio_owner_required, ck_vio_notice_fields, ck_vio_cancel_reason.
+Chỉ mục hiệu năng (vehicle_id, status) và (occurred_at) để dành cho phần EXPLAIN, chưa tạo.'''
 }
 
 Table payments {
-  payment_id       int [pk, increment]
-  violation_id     int [not null, ref: > violations.violation_id]
-  base_fine        decimal(12,2) [not null, note: 'Tiền phạt gốc']
-  late_fee         decimal(12,2) [not null, default: 0, note: 'Phạt trễ tính theo tỷ lệ ngày quá hạn']
-  total_amount     decimal(12,2) [note: 'Tổng tiền = base_fine + late_fee (Generates dynamically/stored)']
-  payment_method   varchar(50) [default: 'SimulatedGateway', note: 'Cổng thanh toán mô phỏng']
-  transaction_code varchar(100) [unique, note: 'Mã giao dịch ngân hàng/ví']
-  status           payment_status [not null, default: 'Pending']
-  payment_time     timestamp [not null, default: `now()`]
+  payment_id   bigint [pk, increment]
+  violation_id bigint [not null, ref: > violations.violation_id]
+  paid_by      bigint [not null, ref: > users.user_id]
+  fine_amount  numeric(12,0) [not null, note: 'Phải bằng violations.fine_amount (trigger)']
+  late_fee     numeric(12,0) [not null, default: 0]
+  total_amount numeric(12,0) [note: 'GENERATED ALWAYS AS (fine_amount + late_fee) STORED']
+  status       txn_status  [not null]
+  gateway_ref  varchar(64) [not null, unique, note: 'Mã giao dịch cổng mô phỏng']
+  created_at   timestamptz [not null, default: `now()`]
+  paid_at      timestamptz [note: 'CHECK ck_pay_paid_at: có giá trị khi và chỉ khi status = success']
 
   indexes {
-    violation_id
-    status
+    violation_id [unique, name: 'uq_payment_one_success', note: 'WHERE status = success - mỗi vi phạm tối đa một giao dịch thành công']
+    violation_id [name: 'ix_pay_violation']
   }
 
-  Note: '''
-  Giao dịch thanh toán nộp phạt.
-  - UNIQUE partial: (violation_id) WHERE status = 'Success' -> Tối đa 1 giao dịch nộp phạt thành công cho mỗi vi phạm
-  '''
+  Note: 'Giao dịch nộp phạt qua cổng mô phỏng. Trigger: vi phạm phải đang notified và số tiền khớp; khóa hàng vi phạm.'
 }
 
 // ============================================================
-// NHÓM 4: BẢO HIỂM TRÁCH NHIỆM DÂN SỰ & BỒI THƯỜNG
+// NHÓM 4: BẢO HIỂM
 // ============================================================
 
 Table insurance_products {
-  product_id               int [pk, increment]
-  insurer_id               int [not null, ref: > insurers.insurer_id]
-  type_id                  int [not null, ref: > vehicle_types.type_id]
-  product_name             varchar(150) [not null, note: 'Tên gói bảo hiểm']
-  premium_fee              decimal(12,2) [not null, note: 'Phí bảo hiểm/năm. CHECK > 0']
-  coverage_duration_months int [not null, note: 'Thời hạn gói (tháng). CHECK > 0']
-  max_coverage_limit       decimal(12,2) [not null, note: 'Hạn mức bồi thường tối đa. CHECK > 0']
-  includes_theft_benefit   boolean [not null, default: false, note: 'Gói mở rộng có quyền lợi mất cắp toàn bộ xe']
-  is_active                boolean [not null, default: true]
-  created_at               timestamp [not null, default: `now()`]
+  product_id      int [pk, increment]
+  insurer_id      int      [not null, ref: > insurers.insurer_id]
+  vehicle_type_id smallint [not null, ref: > vehicle_types.vehicle_type_id]
+  name            varchar(150)  [not null]
+  premium         numeric(12,0) [not null, note: '> 0']
+  term_months     smallint      [not null, note: '1..36']
+  liability_limit numeric(14,0) [not null, note: 'Hạn mức bồi thường tổng theo hợp đồng, > 0']
+  includes_theft  boolean       [not null, default: false]
+  is_active       boolean       [not null, default: true]
 
-  Note: 'Danh mục các gói bảo hiểm của từng công ty'
+  indexes {
+    (insurer_id, vehicle_type_id, name) [unique, name: 'uq_products']
+    insurer_id      [name: 'ix_products_insurer']
+    vehicle_type_id [name: 'ix_products_vehicle_type']
+  }
+
+  Note: 'Gói bảo hiểm TNDS của từng công ty theo loại xe. CHECK ck_products_values'
 }
 
 Table insurance_policies {
-  policy_id   int [pk, increment]
-  vehicle_id  int [not null, ref: > vehicles.vehicle_id]
-  product_id  int [not null, ref: > insurance_products.product_id]
-  buyer_id    int [not null, ref: > users.user_id, note: 'Chủ xe hiện hành mua hợp đồng']
-  start_date  date [not null]
-  end_date    date [not null, note: 'CHECK end_date > start_date (Hết hạn suy ra từ CURRENT_DATE > end_date)']
-  premium_fee decimal(12,2) [not null, note: 'Sao chép mức phí tại thời điểm mua (sao chụp dữ liệu)']
-  status      policy_status [not null, default: 'PendingPayment']
-  created_at  timestamp [not null, default: `now()`]
+  policy_id        bigint [pk, increment]
+  certificate_code varchar(40) [unique, note: 'Sinh khi hợp đồng có hiệu lực: BH-<policy_id 10 số>']
+  vehicle_id       bigint [not null, ref: > vehicles.vehicle_id]
+  product_id       int    [not null, ref: > insurance_products.product_id]
+  buyer_id         bigint [not null, ref: > users.user_id, note: 'Phải là chủ hiện hành (trigger)']
+  start_date       date   [not null]
+  end_date         date   [not null, note: 'Trigger suy ra từ term_months của gói (gồm cả ngày cuối)']
+  premium          numeric(12,0) [not null, note: 'Sao chép từ gói lúc mua']
+  liability_limit  numeric(14,0) [not null, note: 'Sao chép từ gói']
+  includes_theft   boolean       [not null, note: 'Sao chép từ gói']
+  status           policy_status [not null, default: 'pending_payment']
+  created_at       timestamptz   [not null, default: `now()`]
+  cancelled_at     timestamptz   [note: 'CHECK ck_policy_cancelled: có giá trị khi và chỉ khi status = cancelled']
 
   indexes {
-    (vehicle_id, start_date, end_date)
-    buyer_id
+    vehicle_id           [unique, name: 'uq_policy_one_pending', note: 'WHERE status = pending_payment']
+    (vehicle_id, end_date) [name: 'ix_policies_vehicle_end']
+    end_date             [name: 'ix_policies_active_end', note: 'WHERE status = active']
   }
 
-  Note: '''
-  Hợp đồng bảo hiểm xe cơ giới (Hợp đồng gắn với xe, không gắn với chủ).
-  - EXCLUDE USING gist (vehicle_id WITH =, daterange(start_date, end_date, '[]') WITH &&) WHERE status = 'Active' -> Không trùng khoảng hiệu lực
-  - UNIQUE partial: (vehicle_id) WHERE status = 'PendingPayment' -> Tối đa 1 hợp đồng chờ thanh toán cho mỗi xe
-  '''
+  Note: '''Hợp đồng bảo hiểm gắn với xe, không gắn với chủ.
+CHECK: ck_policy_dates, ck_policy_values, ck_policy_active_cert, ck_policy_cancelled.
+EXCLUDE ex_policy_no_overlap USING gist (vehicle_id WITH =, daterange(start_date, end_date, '[]') WITH &&) WHERE status = active.
+Trigger: pending_payment -> active (cần policy_payment success) | cancelled; gói đúng loại xe, xe Bình thường.'''
 }
 
 Table policy_payments {
-  policy_payment_id int [pk, increment]
-  policy_id         int [not null, ref: > insurance_policies.policy_id]
-  amount            decimal(12,2) [not null, note: 'Số tiền phí bảo hiểm']
-  payment_method    varchar(50) [default: 'SimulatedGateway']
-  transaction_code  varchar(100) [unique]
-  status            payment_status [not null, default: 'Pending']
-  payment_time      timestamp [not null, default: `now()`]
+  policy_payment_id bigint [pk, increment]
+  policy_id   bigint [not null, ref: > insurance_policies.policy_id]
+  paid_by     bigint [not null, ref: > users.user_id]
+  amount      numeric(12,0) [not null, note: '> 0, phải bằng premium của hợp đồng (trigger)']
+  status      txn_status  [not null]
+  gateway_ref varchar(64) [not null, unique]
+  created_at  timestamptz [not null, default: `now()`]
+  paid_at     timestamptz [note: 'CHECK ck_polpay_paid_at: có giá trị khi và chỉ khi status = success']
 
-  Note: '''
-  Giao dịch thanh toán phí bảo hiểm.
-  - UNIQUE partial: (policy_id) WHERE status = 'Success' -> Tối đa 1 giao dịch mua bảo hiểm thành công cho mỗi hợp đồng
-  '''
+  indexes {
+    policy_id [unique, name: 'uq_policy_payment_one_success', note: 'WHERE status = success']
+    policy_id [name: 'ix_policy_pay_policy']
+  }
+
+  Note: 'Giao dịch thanh toán phí bảo hiểm qua cổng mô phỏng'
 }
 
 Table insurance_claims {
-  claim_id          int [pk, increment]
-  policy_id         int [not null, ref: > insurance_policies.policy_id]
-  claim_type        claim_type [not null, note: 'Accident (Tai nạn) | Theft (Mất cắp)']
-  claimant_id       int [not null, ref: > users.user_id, note: 'Người yêu cầu bồi thường (Tai nạn: chủ tại thời điểm xảy ra; Mất cắp: chủ hiện tại)']
-  incident_time     timestamp [not null, note: 'Thời điểm xảy ra sự cố (CHECK không ở tương lai)']
-  incident_location text [not null]
-  description       text [not null, note: 'Mô tả diễn biến sự cố']
-  requested_amount  decimal(12,2) [not null, note: 'Số tiền đề nghị bồi thường. CHECK > 0']
-  approved_amount   decimal(12,2) [note: 'Số tiền duyệt bồi thường. CHECK approved_amount <= requested_amount']
-  status            claim_status [not null, default: 'Pending']
-  reviewed_by       int [ref: > users.user_id, note: 'Nhân viên bảo hiểm thẩm định']
-  created_at        timestamp [not null, default: `now()`]
-  updated_at        timestamp [not null, default: `now()`]
+  claim_id         bigint [pk, increment]
+  policy_id        bigint [not null, ref: > insurance_policies.policy_id]
+  claim_type       claim_type   [not null]
+  claimant_id      bigint [not null, ref: > users.user_id, note: 'Chủ xe tại thời điểm sự kiện; mất cắp: chủ hiện hành (trigger)']
+  event_time       timestamptz  [not null, note: 'Không ở tương lai, nằm trong hiệu lực hợp đồng']
+  event_location   varchar(300) [not null]
+  description      varchar(1000)
+  requested_amount numeric(14,0) [not null, note: '> 0']
+  approved_amount  numeric(14,0) [note: '0..requested_amount; tổng đã duyệt của hợp đồng không vượt liability_limit (trigger)']
+  status           claim_status [not null, default: 'pending_review']
+  reviewer_id      bigint [ref: > users.user_id, note: 'Nhân viên bảo hiểm thuộc đúng công ty của hợp đồng (trigger)']
+  review_note      varchar(500)
+  cancel_reason    varchar(500)
+  paid_at          timestamptz [note: 'CHECK ck_claim_paid: có giá trị khi và chỉ khi status = paid']
+  created_at       timestamptz [not null, default: `now()`]
+  updated_at       timestamptz [not null, default: `now()`, note: 'Trigger trg_claims_touch']
 
   indexes {
-    policy_id
-    status
+    policy_id           [unique, name: 'uq_claim_one_open_theft', note: 'WHERE claim_type = theft AND status IN (pending_review, needs_more_info, approved)']
+    (policy_id, status) [name: 'ix_claims_policy_status']
+    status              [name: 'ix_claims_status']
   }
 
-  Note: '''
-  Hồ sơ yêu cầu bồi thường bảo hiểm.
-  - Duyệt bồi thường Mất cắp (Theft) sẽ tự động kích hoạt Transaction: Chuyển trạng thái xe sang Stolen, Hủy các hồ sơ đăng ký/sang tên và hợp đồng bảo hiểm đang chờ của xe.
-  - UNIQUE partial: (policy_id) WHERE claim_type = 'Theft' AND status IN ('Pending', 'AdditionalInfoRequired') -> Tối đa 1 yêu cầu mất cắp đang mở
-  '''
+  Note: '''Yêu cầu bồi thường (tai nạn, mất cắp).
+CHECK: ck_claim_amounts, ck_claim_approved, ck_claim_reviewed, ck_claim_paid, ck_claim_cancel_reason.
+Trigger: pending_review -> approved | rejected | needs_more_info | cancelled; needs_more_info -> pending_review | cancelled; approved -> paid.'''
+}
+
+// ============================================================
+// NHÓM 5: LỊCH SỬ TRẠNG THÁI XE
+// ============================================================
+
+Table vehicle_status_history {
+  history_id bigint [pk, increment]
+  vehicle_id bigint [not null, ref: > vehicles.vehicle_id]
+  event_type vehicle_event  [not null]
+  old_status vehicle_status
+  new_status vehicle_status [not null]
+  reason     varchar(500)
+  actor_id   bigint [ref: > users.user_id]
+  request_id bigint [ref: > registration_requests.request_id]
+  claim_id   bigint [ref: > insurance_claims.claim_id]
+  changed_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (vehicle_id, changed_at) [name: 'ix_vsh_vehicle_time', note: 'changed_at DESC']
+  }
+
+  Note: 'Mọi thay đổi trạng thái xe và sự kiện đăng ký, sang tên. CHECK ck_vsh_event_shape: cặp old_status/new_status khớp event_type'
+}
+
+// ============================================================
+// NHÓM 6: BẢNG TỪ MIGRATION (0002, 0003) - không nằm trong schema.sql
+// ============================================================
+
+Table audit_log {
+  audit_id    bigint [pk, increment]
+  actor_id    bigint [ref: > users.user_id]
+  action      varchar(60) [not null, note: 'vd. request.approve, claim.paid, user.deactivate']
+  entity_type varchar(40) [not null]
+  entity_id   bigint
+  detail      jsonb       [not null, default: `'{}'::jsonb`]
+  created_at  timestamptz [not null, default: `now()`]
+
+  indexes {
+    (entity_type, entity_id, created_at) [name: 'ix_audit_entity', note: 'created_at DESC']
+    (actor_id, created_at)               [name: 'ix_audit_actor', note: 'created_at DESC']
+    (action, created_at)                 [name: 'ix_audit_action', note: 'created_at DESC']
+  }
+
+  Note: 'Nhật ký thao tác của cán bộ và quản trị (migration 0002)'
+}
+
+Table attachments {
+  attachment_id bigint [pk, increment]
+  request_id    bigint [ref: > registration_requests.request_id]
+  claim_id      bigint [ref: > insurance_claims.claim_id]
+  uploaded_by   bigint [not null, ref: > users.user_id]
+  original_name varchar(255) [not null]
+  content_type  varchar(100) [not null]
+  size_bytes    int          [not null, note: 'CHECK ck_attach_size: > 0']
+  storage_name  varchar(64)  [not null, unique]
+  created_at    timestamptz  [not null, default: `now()`]
+
+  indexes {
+    request_id [name: 'ix_attach_request', note: 'WHERE request_id IS NOT NULL']
+    claim_id   [name: 'ix_attach_claim', note: 'WHERE claim_id IS NOT NULL']
+  }
+
+  Note: 'Tệp đính kèm hồ sơ / yêu cầu bồi thường (migration 0003). CHECK ck_attach_one_parent: đúng một trong request_id, claim_id'
 }

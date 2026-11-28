@@ -48,9 +48,9 @@ COMMENT ON TYPE vehicle_event    IS 'registered=Đăng ký mới, ownership_tran
 -- 2. NGƯỜI DÙNG VÀ DANH MỤC
 -- ---------------------------------------------------------------------
 CREATE TABLE roles (
-    role_id   SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    code      VARCHAR(30)  NOT NULL UNIQUE,
-    name      VARCHAR(100) NOT NULL
+    role_id   SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- Tự động sinh role id khi tạo record 
+    code      VARCHAR(30)  NOT NULL UNIQUE, -- Giúp 2 record sẽ khác nhau thuộc tính này, một bảng có thể có nhiều UNIQUE
+    name      VARCHAR(100) NOT NULL 
 );
 
 CREATE TABLE insurers (
@@ -64,7 +64,7 @@ CREATE TABLE insurers (
 CREATE TABLE users (
     user_id       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     role_id       SMALLINT     NOT NULL REFERENCES roles(role_id),
-    insurer_id    INT          REFERENCES insurers(insurer_id),   -- chỉ nhân viên bảo hiểm
+    insurer_id    INT          REFERENCES insurers(insurer_id),   -- Cho phép nhận giá trị NULL (không phải nhân viên bảo hiểm), not null chỉ nhân viên bảo hiểm 
     username      VARCHAR(50)  NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     full_name     VARCHAR(150) NOT NULL,

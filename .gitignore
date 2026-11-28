@@ -20,7 +20,6 @@ build/
 *.dump
 *.backup
 *.sql.gz
-database/seed/large/
 backups/
 
 # IDE / hệ điều hành
@@ -28,4 +27,9 @@ backups/
 .idea/
 .DS_Store
 
+<<<<<<< HEAD
 backup/*.dum
+=======
+# tài liệu yêu cầu của giảng viên (chỉ giữ ở máy)
+Thong_bao_Project_cuoi_ky_2026.pdf
+>>>>>>> origin/nqk-branch

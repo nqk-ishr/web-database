@@ -107,15 +107,14 @@ vehicle-management/
 │
 ├── database/                    # phần chấm điểm chính (VM 3)
 │   ├── schema.dbml              # ERD nguồn
-│   ├── schema.sql               # bản gốc tạo bảng, ràng buộc, exclusion constraint
+│   ├── schema.sql               # bản gốc tạo bảng, ràng buộc, exclusion constraint, trigger và function
 │   ├── alembic.ini
 │   ├── migrations/versions/     # mỗi thay đổi schema một file (có upgrade/downgrade)
-│   ├── triggers/                # trigger và function
 │   ├── views/                   # v_vehicle_status.sql
 │   ├── indexes/                 # 02 chỉ mục kèm lý do
 │   ├── queries/                 # q01_...sql đến q08_...sql
 │   │   └── README.md            # mục đích, đầu vào, kết quả mẫu, người phụ trách
-│   ├── seed/                    # dữ liệu demo (bộ gọn)
+│   ├── seed.sql                 # dữ liệu demo (bộ gọn)
 │   ├── generator/
 │   │   ├── generate_data.py     # chạy với --demo hoặc --large
 │   │   ├── requirements.txt
